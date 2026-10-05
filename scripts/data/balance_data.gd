@@ -58,10 +58,10 @@ extends Resource
 ## 踩头弹起的力度
 @export var stomp_bounce: float = -420.0
 ## 每格平台上刷怪的独立概率（密度故意压得很低）
-@export var enemy_spawn_chance: float = 0.016      ## 红色方块怪（巡逻）
-@export var seeker_spawn_chance: float = 0.006     ## 猎手（追人）
-@export var flyer_spawn_chance: float = 0.008      ## 飞怪
-@export var radical_enemy_chance: float = 0.004    ## 红色偏旁怪
+@export var enemy_spawn_chance: float = 0.010      ## 红色方块怪（巡逻）
+@export var seeker_spawn_chance: float = 0.004     ## 猎手（追人）
+@export var flyer_spawn_chance: float = 0.005      ## 飞怪
+@export var radical_enemy_chance: float = 0.002    ## 红色偏旁怪
 @export var word_block_spawn_chance: float = 0.010 ## 地上的字块
 ## 离主角多近之内不刷怪（格）
 @export var spawn_min_distance: int = 8

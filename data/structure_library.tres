@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="StructureLibrary" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/structure_library.gd" id="1_8mtvi"]
+[ext_resource type="Script" path="res://scripts/data/structure_data.gd" id="2_ab3nd"]
+[ext_resource type="Resource" path="res://data/structures/hut.tres" id="3_xv8hm"]
+[ext_resource type="Resource" path="res://data/structures/stall.tres" id="4_nkrkb"]
+[ext_resource type="Resource" path="res://data/structures/arch.tres" id="5_dtfwq"]
+
+[resource]
+script = ExtResource("1_8mtvi")
+structures = Array[ExtResource("2_ab3nd")]([ExtResource("3_xv8hm"), ExtResource("4_nkrkb"), ExtResource("5_dtfwq")])

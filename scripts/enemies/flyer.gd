@@ -89,8 +89,11 @@ func _physics_process(delta: float) -> void:
 			_target = get_tree().get_first_node_in_group("player") as Node2D
 		if _target != null and is_instance_valid(_target):
 			var d := _target.global_position - global_position
-			if d.length() > 6.0:
+			# 保持一点距离：飞怪是"移动平台"，贴着玩家会把人顶来顶去
+			if d.length() > 62.0:
 				_vel = _vel.lerp(d.normalized() * _speed, clampf(delta * 2.2, 0.0, 1.0))
+			else:
+				_vel = _vel.lerp(Vector2(0.0, -8.0), clampf(delta * 1.5, 0.0, 1.0))
 		else:
 			_vel = Vector2(float(_tame_dir) * _speed * 0.5, 0.0)
 
@@ -139,7 +142,10 @@ func _die() -> void:
 	if _dead:
 		return
 	_dead = true
-	var parent := get_parent()
+	var w := get_parent()
+	if w != null and w.has_method("consume_cell"):
+		w.consume_cell(self)
+	var parent := w
 	if parent != null and is_instance_valid(parent):
 		var n := randi_range(coin_min, coin_max)
 		for i in range(n):

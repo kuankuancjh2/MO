@@ -136,12 +136,14 @@ func _gen_structure_library() -> void:
 			]),
 		},
 		{
-			"id": "tower",
-			"name": "高台",
+			"id": "arch",
+			"name": "悬字台",
 			"weight": 1.0,
+			# 字块悬在 2 格高处 —— 站直够不到，跳起来刚好能撞到（跳跃高度 1.88 格）
 			"grid": PackedStringArray([
+				"..###..",
 				"...W...",
-				"..####.",
+				".......",
 			]),
 		},
 	]

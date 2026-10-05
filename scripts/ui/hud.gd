@@ -64,7 +64,8 @@ func _process(delta: float) -> void:
 
 	var target := 0.0
 	if _player != null and is_instance_valid(_player):
-		target = clampf((1.0 - _player.vision_factor) * 1.6, 0.0, 0.72)
+		# 「暮」的副作用：视野变暗。设上限，免得叠起来糊成一片黑。
+		target = clampf((1.0 - _player.vision_factor) * 1.5, 0.0, 0.50)
 	var c := _dark.color
 	_dark.color = Color(0, 0, 0, lerpf(c.a, target, delta * 4.0))
 

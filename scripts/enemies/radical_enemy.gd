@@ -112,6 +112,8 @@ func _consume(p: Player) -> void:
 		main.announce_text(String(effect.get("text", "")), pos_v)
 	var parent := get_parent()
 	if parent != null:
+		if parent.has_method("consume_cell"):
+			parent.consume_cell(self)
 		var burst := ShardBurst.new()
 		burst.setup(position, Color(1.0, 0.30, 0.30), 10, 5.0, 160.0)
 		parent.add_child(burst)

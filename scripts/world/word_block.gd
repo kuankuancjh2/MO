@@ -59,8 +59,13 @@ func _process(delta: float) -> void:
 
 func _shatter() -> void:
 	state = State.GONE
-	if world != null and world.has_method("notify_destroyed"):
-		world.notify_destroyed(cell)   # 记住它已经没了，卸载重载不会长回来
+	if world != null:
+		# 记为「永久消失」并注销出生格 —— 否则卸载重载后字块会重新长出来，
+		# 玩家就能反复刷同一个字。
+		if world.has_method("notify_destroyed"):
+			world.notify_destroyed(cell)
+		if world.has_method("consume_cell"):
+			world.consume_cell(self)
 	if data != null:
 		RunState.add_radical(data)
 		if _player is Player:

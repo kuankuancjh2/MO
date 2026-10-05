@@ -71,6 +71,17 @@ func notify_destroyed(cell: Vector2i) -> void:
 	_tiles.erase(cell)
 
 
+## 某个实体"被消耗掉了"（怪被打死 / 字块被撞碎）：
+## 把它的出生格标记为永久消失，否则再过几格回来会原地重生一个 —— 无限刷怪。
+func consume_cell(node: Node) -> void:
+	if node == null or not node.has_meta("spawn_cell"):
+		return
+	var cell: Vector2i = node.get_meta("spawn_cell")
+	_destroyed[cell] = true
+	_tiles.erase(cell)
+	_spawned.erase(cell)
+
+
 func destroyed_count() -> int:
 	return _destroyed.size()
 
@@ -254,12 +265,15 @@ func _spawn_marker(cell: Vector2i, ch: String) -> void:
 			return
 	if node == null:
 		return
-	if node is StaticBody2D:
-		pass                                   # WordBlock 自己已经定位好了
+	# 注意：不能用 `node is StaticBody2D` 来区分 —— AnimatableBody2D（飞怪/红偏旁怪）
+	# 也继承自 StaticBody2D，那样它们的 position 永远不会被设置，会全部堆在 (0,0)。
+	if node is WordBlock:
+		pass                                   # 字块用左上角定位，setup 时已经设好了
 	else:
 		node.position = Vector2(cell.x * tile + tile * 0.5,
 			(cell.y + 1) * tile - 18.0 if rest_on_floor else cell.y * tile + tile * 0.5)
 	add_child(node)
+	node.set_meta("spawn_cell", cell)
 	_spawned[cell] = node
 
 
@@ -286,15 +300,17 @@ func _unload(min_c: Vector2i, max_c: Vector2i) -> void:
 
 	# ★ 实体也要卸载。注意用「节点当前所在格」判断，因为敌人会走动；
 	#   但 _spawned 的 key 保持为出生格不动 —— 否则旧格子会被判为"空"而重复刷怪。
+	#   另外这里必须用「无类型」变量接字典的值：条目可能指向已被释放的实例，
+	#   赋给带类型的变量会直接报错。
 	var drop2: Array = []
 	for key in _spawned.keys():
-		var n: Node = _spawned[key]
-		if not is_instance_valid(n) or n.is_queued_for_deletion():
+		var n = _spawned[key]
+		if n == null or not is_instance_valid(n) or (n as Node).is_queued_for_deletion():
 			drop2.append(key)
 			continue
 		var nc := _cell((n as Node2D).global_position)
 		if nc.x < min_c.x or nc.x > max_c.x or nc.y < min_c.y or nc.y > max_c.y:
-			n.queue_free()
+			(n as Node).queue_free()
 			drop2.append(key)
 	for k in drop2:
 		_spawned.erase(k)

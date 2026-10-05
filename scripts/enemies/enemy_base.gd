@@ -101,8 +101,16 @@ func _die() -> void:
 	if _dead:
 		return
 	_dead = true
+	_mark_consumed()
 	_drop_coins()
 	queue_free()
+
+
+## 告诉世界：这一格的东西已经被消耗掉了，别在原地重生一个
+func _mark_consumed() -> void:
+	var w := get_parent()
+	if w != null and w.has_method("consume_cell"):
+		w.consume_cell(self)
 
 
 ## 注意：死亡常常发生在碰撞回调里，此时不能直接往场景树加带碰撞体的节点，
