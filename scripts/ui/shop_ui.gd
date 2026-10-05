@@ -1,20 +1,21 @@
 class_name ShopUI
 extends CanvasLayer
-## 商店界面。
+## 局内商店：花**金币**买当局补给。
 ##
-## ★ 故意**不做全屏遮罩**：面板挂在右上角，主角和脚下的地面一直看得见 ——
+## ★ 故意**不做全屏遮罩**：面板挂在右上角，主角和脚下一直看得见 ——
 ##   因为买东西的时候时间没有停，你脚下的方块还在倒计时。
-##   这是设计的一部分：让你意识到"我站在原地买东西，脚下正在塌"。
+##   面板底用素材 ui_box（九宫格拉伸），和地图一样是纸墨风。
 
 signal closed
 
 const OPEN_GUARD := 0.15
-const PANEL := Vector2(470, 236)
+const PANEL := Vector2(500, 250)
 
 var _player: Player
 var _open := false
 var _guard := 0.0
 var _bg: ColorRect
+var _panel: NinePatchRect
 var _title: Label
 var _msg: Label
 var _note: Label
@@ -25,28 +26,33 @@ var _items: Array = []
 func setup(p: Player) -> void:
 	_player = p
 	var cfg := Assets.cfg
+	# 兜底底色（没有 ui_box 素材时也能看清）
 	_bg = ColorRect.new()
-	_bg.color = Color(0.05, 0.05, 0.08, 0.92)
+	_bg.color = Color(1, 1, 1, 0.94)
 	_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_bg)
-	# 面板边框感：再叠一条细边
-	var edge := ColorRect.new()
-	edge.color = Color(cfg.color_coin.r, cfg.color_coin.g, cfg.color_coin.b, 0.9)
-	edge.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	edge.name = "Edge"
-	add_child(edge)
-	_title = Assets.make_label("商店", cfg.hud_big_font_size, cfg.color_coin)
+	var box := Assets.get_art("ui_box")
+	if box != null:
+		_panel = NinePatchRect.new()
+		_panel.texture = box
+		_panel.patch_margin_left = 26
+		_panel.patch_margin_right = 26
+		_panel.patch_margin_top = 26
+		_panel.patch_margin_bottom = 26
+		_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(_panel)
+	_title = Assets.make_label("商店", cfg.hud_big_font_size, cfg.color_hud)
 	_msg = Assets.make_label("", int(cfg.hud_font_size * 0.85), cfg.color_hud)
-	_note = Assets.make_label("时间不会停 —— 你脚下的方块还在塌", int(cfg.hud_font_size * 0.8),
-		cfg.color_tile_warn)
+	_note = Assets.make_label("时间不会停 —— 你脚下的方块还在塌",
+		int(cfg.hud_font_size * 0.8), cfg.color_tile_warn)
 	add_child(_title)
 	add_child(_msg)
 	add_child(_note)
-	for i in range(3):
+	_rebuild_items()
+	for i in range(_items.size()):
 		var l := Assets.make_label("", int(cfg.hud_font_size * 0.92), cfg.color_hud)
 		add_child(l)
 		_rows.append(l)
-	_rebuild_items()
 	visible = false
 
 
@@ -56,23 +62,19 @@ func _rebuild_items() -> void:
 		{
 			"name": "回心", "price": b.shop_heal_price, "note": "回复 1 心",
 			"apply": func() -> void: _player.heal(1.0),
-			"sold_out": func() -> bool: return false,
+			"sold": func() -> bool: return false,
 		},
 		{
-			"name": "随机一个字", "price": b.shop_word_price, "note": "立刻获得一个随机字",
+			"name": "换一个字", "price": b.shop_word_price, "note": "立刻抽一个随机的字",
 			"apply": func() -> void: _grant_random_word(),
-			"sold_out": func() -> bool: return false,
+			"sold": func() -> bool: return false,
 		},
 		{
-			"name": "加一个槽位", "price": b.shop_slot_price, "note": "本局可多带一个字（限一次）",
-			"apply": func() -> void: RunState.slot_count += 1,
-			"sold_out": func() -> bool: return RunState.slot_count > _base_slots(),
+			"name": "续字", "price": b.shop_extend_price, "note": "当前的字 +12 秒",
+			"apply": func() -> void: RunState.extend_radical(12.0),
+			"sold": func() -> bool: return RunState.radicals.is_empty(),
 		},
 	]
-
-
-func _base_slots() -> int:
-	return Balance.d.radical_slots_base + int(MetaState.get_upgrade("slots")) + 1
 
 
 func _grant_random_word() -> void:
@@ -139,15 +141,14 @@ func _layout(vp: Vector2) -> void:
 	var pos := Vector2(vp.x - PANEL.x - 20.0, 46.0)
 	_bg.position = pos
 	_bg.size = PANEL
-	var edge := get_node_or_null("Edge") as ColorRect
-	if edge != null:
-		edge.position = pos
-		edge.size = Vector2(PANEL.x, 2.0)
-	_title.position = pos + Vector2(18, 10)
-	_msg.position = pos + Vector2(18, 52)
-	_note.position = pos + Vector2(18, PANEL.y - 30.0)
+	if _panel != null:
+		_panel.position = pos
+		_panel.size = PANEL
+	_title.position = pos + Vector2(24, 12)
+	_msg.position = pos + Vector2(24, 56)
+	_note.position = pos + Vector2(24, PANEL.y - 34.0)
 	for i in range(_rows.size()):
-		_rows[i].position = pos + Vector2(18, 84 + i * 30.0)
+		_rows[i].position = pos + Vector2(26, 92 + i * 32.0)
 
 
 func _refresh_rows() -> void:
@@ -156,18 +157,18 @@ func _refresh_rows() -> void:
 			_rows[i].text = ""
 			continue
 		var it: Dictionary = _items[i]
-		var sold: bool = (it["sold_out"] as Callable).call()
-		var affordable: bool = RunState.coins >= int(it["price"])
+		var sold: bool = (it["sold"] as Callable).call()
+		var ok: bool = RunState.coins >= int(it["price"])
 		var color := Assets.cfg.color_hud
 		if sold:
 			color = Assets.cfg.color_hud_dim
-		elif not affordable:
+		elif not ok:
 			color = Assets.cfg.color_enemy
 		_rows[i].add_theme_color_override("font_color", color)
 		var state := ""
 		if sold:
-			state = "（已售出）"
-		elif not affordable:
+			state = "（现在不需要）"
+		elif not ok:
 			state = "（还差 %d 金）" % (int(it["price"]) - RunState.coins)
 		_rows[i].text = "%d. %s   %d 金   %s %s" % [
 			i + 1, it["name"], int(it["price"]), it["note"], state]
@@ -175,8 +176,8 @@ func _refresh_rows() -> void:
 
 func _try_buy(i: int) -> void:
 	var it: Dictionary = _items[i]
-	if (it["sold_out"] as Callable).call():
-		_msg.text = "这个已经买过了"
+	if (it["sold"] as Callable).call():
+		_msg.text = "现在不需要这个"
 		return
 	var price := int(it["price"])
 	if RunState.coins < price:

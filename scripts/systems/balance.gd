@@ -49,6 +49,7 @@ func _scale_pixels(k: float) -> void:
 	d.flyer_speed *= k
 	d.stomp_bounce *= k
 	d.boss_shot_speed *= k
+	d.dash_speed *= k
 	# 世界空间里的字号（在 Assets 里缩放；HUD 字号不受相机影响，不缩放）
 
 

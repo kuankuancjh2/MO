@@ -8,6 +8,7 @@ var player: Player
 var hud: Hud
 var grid: GridBackground
 var shop_ui: ShopUI
+var meta_shop: MetaShopUI
 
 
 func _ready() -> void:
@@ -50,6 +51,10 @@ func _ready() -> void:
 	add_child(shop_ui)
 	shop_ui.setup(player)
 
+	meta_shop = MetaShopUI.new()
+	add_child(meta_shop)
+	meta_shop.setup()
+
 	player.died.connect(_on_player_died)
 
 
@@ -59,6 +64,9 @@ func _on_player_died() -> void:
 		hud.set_prompt("")
 	# 死亡结算：把这一局的进度换成魂币，留给下一局买全局成长
 	MetaState.add_souls(3 + maxi(0, RunState.coins / 2))
+	# ★ 死掉直接弹全局商店：拿魂币换永久成长，再按 R 重来
+	if meta_shop != null:
+		meta_shop.open(true)
 
 
 func announce_radical(r: RadicalData) -> void:
@@ -85,3 +93,13 @@ func open_shop() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("restart"):
 		get_tree().reload_current_scene()
+		return
+	# TAB 随时开全局商店
+	if event is InputEventKey and event.pressed and not event.echo \
+			and (event as InputEventKey).physical_keycode == KEY_TAB:
+		if meta_shop != null:
+			if meta_shop.is_open():
+				meta_shop.close()
+			else:
+				meta_shop.open(false)
+		get_viewport().set_input_as_handled()

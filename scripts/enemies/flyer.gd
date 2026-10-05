@@ -111,6 +111,7 @@ func _physics_process(delta: float) -> void:
 	_prev_pos = global_position
 	velocity = (Vector2(tx, ty) - global_position) * 2.6
 	velocity = velocity.limit_length(_speed * word_speed_mul * 1.9)
+	_apply_attract()
 	move_and_slide()
 	move_delta = global_position - _prev_pos
 	if _wg != null and is_instance_valid(_wg):
@@ -118,6 +119,18 @@ func _physics_process(delta: float) -> void:
 		_wg.flash = _flash > 0.0
 		if was != _wg.flash:
 			_wg.queue_redraw()
+
+
+## 「慕」的副作用：飞怪也被牵过来
+func _apply_attract() -> void:
+	if not RunState.has_attract():
+		return
+	if _target == null or not is_instance_valid(_target):
+		return
+	var d := _target.global_position - global_position
+	if d.length() > Balance.d.attract_radius:
+		return
+	velocity += d.normalized() * b.enemy_attract_speed
 
 
 func try_contact_damage(p: Player) -> void:

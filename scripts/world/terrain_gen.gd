@@ -59,6 +59,17 @@ static func rand01(x: int, y: int, s: int) -> float:
 	return float(absi(h) % 1000003) / 1000003.0
 
 
+## ★ 混合得更好的随机（取偏旁、取装饰用它）。
+## 直接用 hash(Vector3i) 在相邻坐标上分布很偏 —— 表现就是"抽来抽去总是那几种字"。
+static func hash01(x: int, y: int, s: int) -> float:
+	var h: int = (x * 73856093) ^ (y * 19349663) ^ (s * 83492791)
+	h = (h ^ (h >> 13)) * 1274126177
+	h = h ^ (h >> 16)
+	h = (h ^ (h >> 7)) * 2654435761
+	h = h ^ (h >> 15)
+	return float(absi(h) % 1000003) / 1000003.0
+
+
 static func _vnoise(x: float, s: int) -> float:
 	var i := floori(x)
 	var f := x - float(i)
@@ -83,6 +94,7 @@ static func clear_cache() -> void:
 	_col_cache.clear()
 	_anchor_cache.clear()
 	_slot_cache.clear()
+	_land_cache.clear()
 
 
 # ── 生物群系 ───────────────────────────────────────────
@@ -100,10 +112,20 @@ static func _in_safe_zone(cx: int, k: int) -> bool:
 	return k == 0 and absi(cx) <= SAFE_COLS
 
 
+static var _land_cache: Dictionary = {}
+
+
 static func is_land(cx: int, k: int, s: int) -> bool:
-	if _in_safe_zone(cx, k):
-		return true
-	return fbm1(float(cx) * LAND_SCALE, s + k * 1013) > LAND_THRESHOLD
+	# 缓存：岛的起止扫描会对同一列反复发问，不缓存的话每次重开都要重跑几百万次噪声
+	var key := Vector2i(cx, k)
+	var cached: Variant = _land_cache.get(key)
+	if cached != null:
+		return cached
+	var v := true
+	if not _in_safe_zone(cx, k):
+		v = fbm1(float(cx) * LAND_SCALE, s + k * 1013) > LAND_THRESHOLD
+	_land_cache[key] = v
+	return v
 
 
 static func _island_start(cx: int, k: int, s: int) -> int:
@@ -334,6 +356,10 @@ static func is_solid(cx: int, cy: int, s: int) -> bool:
 	var sc := struct_cell(cx, cy, s)
 	if sc != "":
 		return StructureData.SOLID_CHARS.contains(sc)
+	# ★ 拱腔是真正打通的（不只是不画）—— 否则地体里会留下看不见的实心格，
+	#   玩家撞上去就是"幽灵墙"。拱腔只出现在厚地体底部两行，不影响地表。
+	if arch_at(cx, cy, s):
+		return false
 	var k := fdiv(cy, BAND_ROWS)
 	var r := cy - k * BAND_ROWS
 	var c := column(cx, k, s)
@@ -431,7 +457,7 @@ static func has_radical(cx: int, cy: int, s: int) -> bool:
 		return true
 	if not is_surface(cx, cy, s):
 		return false
-	return rand01(cx, cy, s + 4242) < RADICAL_BLOCK_CHANCE
+	return hash01(cx, cy, s + 4242) < RADICAL_BLOCK_CHANCE
 
 
 ## 玩家所在层号：地表为 0，越往下越大
@@ -460,7 +486,7 @@ static func deco_at(cx: int, k: int, s: int) -> String:
 	var list: Array = BiomeTable.deco(b)
 	if list.is_empty():
 		return ""
-	return String(list[int(rand01(cx, k * 31 + 1801, s) * float(list.size())) % list.size()])
+	return String(list[int(hash01(cx, k * 31 + 1801, s) * float(list.size())) % list.size()])
 
 
 ## 地体内部是否有拱腔（纯视觉：让厚地体看起来像有构造的堤坝）

@@ -23,6 +23,8 @@ func _ready() -> void:
 	await _test_fall_and_cancel()
 	await _test_ride()
 	await _test_radicals_and_synergy()
+	await _test_dash()
+	await _test_meta_shop()
 	await _test_double_jump()
 	await _test_shop()
 	await _test_boss()
@@ -276,7 +278,7 @@ func _find_bounded_void(cx: int, fall_cells: int = 6) -> Vector2i:
 	for dc in range(0, 16):
 		for sign_x in [1, -1]:
 			var x: int = cx + dc * int(sign_x)
-			for dy in range(-2, 40):
+			for dy in range(-4, 110):
 				var y := cy + dy
 				var clear := true
 				for j in range(0, fall_cells):
@@ -316,7 +318,7 @@ func _test_fall_and_cancel() -> void:
 	var land := _find_land(_pcx() + 6)
 	await _place_on_column(land)
 	await _wait_physics(20)
-	var spot := _find_bounded_void(_pcx(), 6)
+	var spot := _find_bounded_void(_pcx(), 8)
 	_player.position = Vector2(spot.x * _tile() + 24, spot.y * _tile() + 24)
 	_player.velocity = Vector2.ZERO
 	_player._invuln = 0.0
@@ -338,7 +340,7 @@ func _test_fall_and_cancel() -> void:
 	var land2 := _find_land(_pcx() + 6)
 	await _place_on_column(land2)
 	await _wait_physics(20)
-	spot = _find_bounded_void(_pcx(), 6)
+	spot = _find_bounded_void(_pcx(), 8)
 	_player.position = Vector2(spot.x * _tile() + 24, spot.y * _tile() + 24)
 	_player.velocity = Vector2.ZERO
 	_player._invuln = 0.0
@@ -424,7 +426,7 @@ func _test_ride() -> void:
 # ── 7) 偏旁 / 组合技 ──────────────────────────────────
 
 func _test_radicals_and_synergy() -> void:
-	print("\n[7] 偏旁与组合技")
+	print("\n[7] 偏旁（只能带一个，而且会定时消散）")
 	await _clear_field()
 	var lib := load("res://data/radical_library.tres") as RadicalLibrary
 	_check(lib != null and lib.radicals.size() >= 11, "偏旁库加载（%d 个字）"
@@ -435,21 +437,29 @@ func _test_radicals_and_synergy() -> void:
 	var v0 := _player.vanish_factor
 	RunState.add_radical(lib.find_by_id("mo_ri"))
 	await get_tree().process_frame
+	_check(RunState.radicals.size() == 1, "只会带一个字")
 	_check(_player.vanish_factor > v0, "「暮」让消失变慢")
 	_check(_player.vision_factor < 1.0, "「暮」的副作用：视野变暗（%.2f）" % _player.vision_factor)
+	_check(RunState.radical_left > 0.0, "字带上了剩余时间（%.0f 秒）" % RunState.radical_left)
 
-	# 组合技「暮慕」应该抵消视野惩罚
-	RunState.add_radical(lib.find_by_id("mo_xin"))
+	# 再拿一个字：应该是**替换**，不是叠加
+	RunState.add_radical(lib.find_by_id("mo_tu"))
 	await get_tree().process_frame
-	_check(absf(_player.vision_factor - 1.0) < 0.01,
-		"组合技「暮慕」抵消了视野变暗（%.2f）" % _player.vision_factor)
-	_check(_player.attract, "组合技保留磁吸")
-	_check(_player.attract_radius_mul > 1.0, "磁吸范围被放大（x%.1f）" % _player.attract_radius_mul)
+	_check(RunState.radicals.size() == 1, "新字替换旧字，不叠加")
+	_check(_player.move_factor < 1.0, "「墓」的副作用生效（而且只是变慢 6 倍，不再永久）")
+
+	# 定时消散
+	RunState.radical_left = 0.35
+	var t := 0.0
+	while t < 1.4 and not RunState.radicals.is_empty():
+		await get_tree().physics_frame
+		t += 1.0 / 60.0
+	_check(RunState.radicals.is_empty(), "字到时间自己消散了（%.2fs）" % t)
+	await get_tree().process_frame
+	_check(absf(_player.move_factor - 1.0) < 0.02, "消散后属性恢复")
 
 	# 漠：三发且无副作用
-	RunState.radicals.clear()
-	RunState.radicals.append(lib.find_by_id("mo_shui"))
-	RunState.radicals_changed.emit()
+	RunState.add_radical(lib.find_by_id("mo_shui"))
 	await get_tree().process_frame
 	_check(absf(_player.vanish_factor - 1.0) < 0.01, "「漠」没有副作用")
 	for c in _world.get_children():
@@ -464,25 +474,26 @@ func _test_radicals_and_synergy() -> void:
 			shots += 1
 	_check(shots == 3, "「漠」一次打出三发水柱（%d 发）" % shots)
 
-	# 「摸」主动技能：把金币抓过来
+	# 「慕」的磁吸真的会把怪拉过来
 	RunState.radicals.clear()
-	RunState.radicals.append(lib.find_by_id("mo_shou"))
 	RunState.radicals_changed.emit()
 	await get_tree().process_frame
-	var coin := Coin.new()
-	coin.setup(Assets.cfg.color_coin)
-	coin.position = _player.position + Vector2(_tile() * 6.0, 0)
-	_world.add_child(coin)
-	await _wait_physics(3)
-	var d0: float = coin.global_position.distance_to(_player.global_position)
-	_player.do_skill("skill_2")
-	await _wait_physics(3)
-	var pulled := false
-	if not is_instance_valid(coin):
-		pulled = true      # 直接被吸进嘴里了
-	else:
-		pulled = coin.global_position.distance_to(_player.global_position) < d0 - 100.0
-	_check(pulled, "「摸」把金币抓了过来（距离 %.0f）" % d0)
+	await _place_on_column(_find_land(_pcx() + 6))
+	await _wait_physics(20)
+	var e := RedBlock.new()
+	e.setup(Balance.d)
+	e.speed = 0.0
+	e.position = _player.global_position + Vector2(_tile() * 3.4, -_tile() * 0.4)
+	_world.add_child(e)
+	await _wait_physics(5)
+	var d0: float = absf(e.global_position.x - _player.global_position.x)
+	RunState.add_radical(lib.find_by_id("mo_xin"))
+	await get_tree().process_frame
+	await _wait_physics(40)
+	var d1: float = absf(e.global_position.x - _player.global_position.x)
+	_check(d1 < d0 - _tile() * 0.3, "「慕」把怪也牵过来了（%.0f -> %.0f px）" % [d0, d1])
+	if is_instance_valid(e):
+		e.queue_free()
 
 	# 「馍」立即回血
 	RunState.radicals.clear()
@@ -496,6 +507,81 @@ func _test_radicals_and_synergy() -> void:
 	_check(_player.hp > hp0, "「馍」立即回血")
 
 
+# ── 7b) 冲刺 ──────────────────────────────────────────
+
+func _test_dash() -> void:
+	print("\n[7b] 冲刺（Shift，有冷却）")
+	await _clear_field()
+	await _place_on_column(_find_land(_pcx()))
+	await _wait_physics(20)
+	var peak := 0.0
+	Input.action_press("dash")
+	await get_tree().physics_frame
+	Input.action_release("dash")
+	for i in range(14):
+		await get_tree().physics_frame
+		peak = maxf(peak, _player.velocity.x)
+	_check(peak > Balance.d.move_speed * 1.5,
+		"冲刺速度明显高于跑步（%.0f vs %.0f）" % [peak, Balance.d.move_speed])
+	_check(_player._dash_cd > 0.0, "冲刺进入冷却（剩 %.2fs）" % _player._dash_cd)
+	# 冷却中再按无效
+	var cd0 := _player._dash_cd
+	Input.action_press("dash")
+	await get_tree().physics_frame
+	Input.action_release("dash")
+	await get_tree().physics_frame
+	_check(_player._dash_left <= 0.0, "冷却期间按冲刺不会再次触发")
+	_check(_player._dash_cd < cd0 + 0.001, "冷却在倒数")
+
+
+# ── 7c) 全局商店 ──────────────────────────────────────
+
+func _test_meta_shop() -> void:
+	print("\n[7c] 全局商店（魂币换永久成长）")
+	await _clear_field()
+	var ms: MetaShopUI = _main.meta_shop
+	_check(ms != null, "全局商店已创建")
+	if ms == null:
+		return
+	MetaState.souls = 200
+	MetaState.upgrades.erase("hp")
+	ms.open(false)
+	await get_tree().process_frame
+	_check(ms.is_open(), "能打开全局商店")
+	var lv0 := MetaState.get_upgrade("hp")
+	var souls0 := MetaState.souls
+	ms._buy(0)
+	await get_tree().process_frame
+	_check(MetaState.get_upgrade("hp") > lv0, "买到了永久升级（心 %d -> %d）"
+		% [lv0, MetaState.get_upgrade("hp")])
+	_check(MetaState.souls < souls0, "扣了魂币（%d -> %d）" % [souls0, MetaState.souls])
+	ms.close()
+	await get_tree().process_frame
+	_check(not ms.is_open(), "能关闭")
+	MetaState.upgrades.erase("hp")
+	MetaState.souls = 0
+	MetaState.save_game()
+	await _clear_field()
+	await _place_on_column(_find_land(_pcx()))
+	await _wait_physics(20)
+	var boss := Boss.new()
+	boss.setup(Balance.d, _player)
+	boss.position = _player.global_position + Vector2(_tile() * 4.0, -_tile() * 1.5)
+	boss._home = boss.position
+	_world.add_child(boss)
+	await _wait_physics(20)
+	_check(boss.engaged, "进入范围后 Boss 开始交战")
+	var hp0 := boss.hp
+	boss.hit(5.0, Vector2.ZERO)
+	await _wait_physics(2)
+	_check(boss.hp < hp0, "Boss 会掉血（%.0f -> %.0f）" % [hp0, boss.hp])
+	var souls_before := MetaState.souls
+	boss.hit(999.0, Vector2.ZERO)
+	await _wait_physics(4)
+	_check(not is_instance_valid(boss) or boss.is_queued_for_deletion(), "Boss 会被击杀")
+	_check(MetaState.souls > souls_before, "击杀 Boss 给了魂币（%d -> %d）" % [souls_before, MetaState.souls])
+
+
 # ── 8) 二段跳（永久特性）──────────────────────────────
 
 func _test_double_jump() -> void:
@@ -504,8 +590,7 @@ func _test_double_jump() -> void:
 	var had := MetaState.has_trait("double_jump")
 	var lib := load("res://data/radical_library.tres") as RadicalLibrary
 	RunState.radicals.clear()
-	RunState.radicals.append(lib.find_by_id("mo_chong"))
-	RunState.radicals_changed.emit()
+	RunState.add_radical(lib.find_by_id("mo_chong"))
 	await get_tree().process_frame
 	_check(MetaState.has_trait("double_jump"), "拿到「蟆」就永久解锁二段跳（写进存档）")
 	_check(_player.can_double_jump, "二段跳能力生效")
@@ -528,7 +613,6 @@ func _test_double_jump() -> void:
 	await get_tree().physics_frame
 	_check(_player.velocity.y < -350.0, "空中再按跳跃触发二段跳（vy=%.0f）" % _player.velocity.y)
 
-	# 「蟆」的永久特性不该被测试污染存档
 	if not had:
 		MetaState.traits.erase("double_jump")
 		MetaState.save_game()
@@ -536,10 +620,10 @@ func _test_double_jump() -> void:
 	RunState.radicals_changed.emit()
 
 
-# ── 9) 商店 ───────────────────────────────────────────
+# ── 9) 局内商店 ───────────────────────────────────────
 
 func _test_shop() -> void:
-	print("\n[9] 商店")
+	print("\n[9] 局内商店")
 	await _clear_field()
 	_player.take_damage(2.0)
 	await get_tree().process_frame
@@ -551,13 +635,11 @@ func _test_shop() -> void:
 	await get_tree().process_frame
 	_check(_main.shop_ui.is_open(), "按 F 能打开商店")
 	_check(_player.input_locked, "开店时锁住主角操作")
-	# 面板不能挡住主角（否则玩家看不见脚下在塌）
 	var panel: ColorRect = _main.shop_ui._bg
 	var vp := _player.get_viewport().get_visible_rect().size
 	var player_screen: Vector2 = _player.get_viewport().get_canvas_transform() \
 		* _player.global_position
-	_check(not panel.get_rect().has_point(player_screen),
-		"商店面板没有挡住主角（面板在右上角）")
+	_check(not panel.get_rect().has_point(player_screen), "商店面板没有挡住主角")
 	_main.shop_ui._try_buy(0)
 	await get_tree().process_frame
 	_check(_player.hp > hp0, "买「回心」回了血")
@@ -585,11 +667,12 @@ func _test_boss() -> void:
 	boss.hit(5.0, Vector2.ZERO)
 	await _wait_physics(2)
 	_check(boss.hp < hp0, "Boss 会掉血（%.0f -> %.0f）" % [hp0, boss.hp])
-	var souls0 := MetaState.souls
+	var souls_before := MetaState.souls
 	boss.hit(999.0, Vector2.ZERO)
 	await _wait_physics(4)
 	_check(not is_instance_valid(boss) or boss.is_queued_for_deletion(), "Boss 会被击杀")
-	_check(MetaState.souls > souls0, "击杀 Boss 给了魂币（%d -> %d）" % [souls0, MetaState.souls])
+	_check(MetaState.souls > souls_before, "击杀 Boss 给了魂币（%d -> %d）"
+		% [souls_before, MetaState.souls])
 
 
 # ── 11) 梯子 ──────────────────────────────────────────

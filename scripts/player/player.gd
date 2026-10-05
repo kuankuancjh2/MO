@@ -45,6 +45,12 @@ var facing: int = 1
 var riding: Node2D = null
 var climbing := false
 var _climb_cd := 0.0
+var _dash_left := 0.0
+var _dash_cd := 0.0
+var _dash_dir := 1
+## 全局商店买来的成长
+var dash_cd_factor := 1.0
+var dash_bonus_time := 0.0
 
 var _dead := false
 var _attack_cd := 0.0
@@ -146,9 +152,11 @@ func recalc_stats() -> void:
 	move_factor = _meta_factor("move")
 	damage_factor = 1.0
 	vision_factor = 1.0
-	attack_factor = 1.0
+	attack_factor = _meta_factor("atk")
 	attack_cd_factor = 1.0
 	jump_factor = 1.0
+	# 全局商店：冲刺冷却
+	dash_cd_factor = maxf(1.0 - 0.15 * float(MetaState.get_upgrade("dash")), 0.40)
 	attract = false
 	attract_radius_mul = 1.0
 	water_count = 3
@@ -197,7 +205,9 @@ func _meta_factor(stat: String) -> float:
 		"vanish":
 			return 1.0 + 0.08 * float(MetaState.get_upgrade("vanish"))
 		"move":
-			return 1.0 + 0.04 * float(MetaState.get_upgrade("speed"))
+			return 1.0 + 0.05 * float(MetaState.get_upgrade("speed"))
+		"atk":
+			return 1.0 + 0.15 * float(MetaState.get_upgrade("atk"))
 	return 1.0
 
 
@@ -237,6 +247,7 @@ func _physics_process(delta: float) -> void:
 	var want_skill_2 := false
 	var want_up := false
 	var want_down := false
+	var want_dash := false
 	if not input_locked:
 		dir = Input.get_axis("move_left", "move_right")
 		want_jump = Input.is_action_just_pressed("jump")
@@ -245,6 +256,28 @@ func _physics_process(delta: float) -> void:
 		want_skill_2 = Input.is_action_just_pressed("skill_2")
 		want_up = Input.is_action_pressed("move_up")
 		want_down = Input.is_action_pressed("move_down")
+		want_dash = Input.is_action_just_pressed("dash")
+
+	# ── 冲刺（Shift，有冷却）────────────────────────────
+	if want_dash and _dash_cd <= 0.0 and _dash_left <= 0.0:
+		_dash_left = b.dash_time * (1.0 + dash_bonus_time)
+		_dash_cd = b.dash_cooldown * dash_cd_factor
+		_dash_dir = facing if absf(dir) < 0.05 else (1 if dir > 0.0 else -1)
+		Sfx.play_varied("jump", 0.25)
+	if _dash_left > 0.0:
+		_dash_left -= delta
+		velocity.x = float(_dash_dir) * b.dash_speed
+		velocity.y = minf(velocity.y, 0.0)          # 冲刺期间不下坠
+		var pre_vd := velocity
+		move_and_slide()
+		_touch_bodies(pre_vd)
+		_touch_ground()
+		_apply_ride()
+		_update_layer()
+		_update_glyph()
+		_update_visual()
+		return
+	_dash_cd = maxf(_dash_cd - delta, 0.0)
 
 	# ── 梯子：全作唯一能"向上爬"的东西 ──────────────────
 	_climb_cd = maxf(_climb_cd - delta, 0.0)
@@ -462,7 +495,8 @@ func _update_glyph() -> void:
 	elif _invuln > 0.0:
 		col = Assets.cfg.color_player.lerp(Color(1, 1, 1, 0.3), 0.5)
 	_glyph.add_theme_color_override("font_color", col)
-	_glyph.rotation = deg_to_rad(-6.0 * facing)
+	# 走路不再让字歪着 —— 歪了既影响观感，也让人误判碰撞范围
+	_glyph.rotation = 0.0
 
 
 ## 图象：有 assets/art 就用图，没有就只显示「莫」字

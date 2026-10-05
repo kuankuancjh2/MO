@@ -102,6 +102,7 @@ func _physics_process(delta: float) -> void:
 		velocity.y = minf(velocity.y + b.gravity * gravity_scale * delta, b.max_fall_speed)
 	_prev_pos = global_position
 	ai(delta)
+	_apply_attract()          # 「慕」的副作用：把怪也牵过来
 	move_and_slide()
 	move_delta = global_position - _prev_pos
 	if _wg != null and is_instance_valid(_wg):
@@ -109,6 +110,19 @@ func _physics_process(delta: float) -> void:
 		_wg.flash = _flash > 0.0
 		if was != _wg.flash:
 			_wg.queue_redraw()
+
+
+## 「慕」的磁吸会把敌人也牵向你 —— 这是它的副作用，靠这一行才真的成立
+func _apply_attract() -> void:
+	if not RunState.has_attract():
+		return
+	var p := get_tree().get_first_node_in_group("player") as Node2D
+	if p == null or not is_instance_valid(p):
+		return
+	var dx := p.global_position.x - global_position.x
+	if absf(dx) > Balance.d.attract_radius:
+		return
+	velocity.x += signf(dx) * b.enemy_attract_speed
 
 
 func try_contact_damage(p: Player) -> void:

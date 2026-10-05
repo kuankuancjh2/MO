@@ -43,7 +43,7 @@ func setup(p: Player) -> void:
 	_toast = Assets.make_label("", int(fsize * 1.1), cfg.color_hud)
 	_banner_label = Assets.make_label("", int(fsize * 1.25), cfg.color_coin)
 	_prompt = Assets.make_label("", int(fsize * 1.05), cfg.color_coin)
-	_hint = Assets.make_label("A/D 移动   空格 跳跃   鼠标左键 攻击   Q 技能   F 交互   R 重开",
+	_hint = Assets.make_label("A/D 移动  空格 跳跃  Shift 冲刺  左键 攻击  Q/E 技能  F 交互  TAB 全局商店  R 重开",
 		int(fsize * 0.7), cfg.color_hud_dim)
 	_overlay = Assets.make_label("你散去了", cfg.hud_big_font_size, cfg.color_player)
 	_overlay_sub = Assets.make_label("按 R 重新开始", fsize, cfg.color_hud_dim)

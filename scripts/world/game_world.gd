@@ -118,6 +118,26 @@ func touch_around(rect: Rect2, player: Node) -> void:
 				(t as SolidTile).on_touched(player)
 
 
+## 立刻打碎一格（墨点打中方块时用）
+func break_cell(cell: Vector2i) -> void:
+	var t = _tiles.get(cell)
+	_destroyed[cell] = true
+	_tiles.erase(cell)
+	if t != null and is_instance_valid(t):
+		var burst := ShardBurst.new()
+		burst.setup((t as Node2D).position + Vector2(tile, tile) * 0.5,
+			Color(0.12, 0.12, 0.12), 8, float(tile) * 0.0625, float(tile) * 2.2)
+		add_child(burst)
+		Sfx.play_varied("shatter", 0.15)
+		# 里面藏了偏旁就让它掉出来
+		var rad: RadicalData = (t as SolidTile).radical
+		if rad != null:
+			var pick := RadicalPickup.new()
+			pick.setup(rad, (t as Node2D).position + Vector2(tile, tile) * 0.5)
+			add_child(pick)
+		t.queue_free()
+
+
 func entity_count() -> int:
 	return _spawned.size()
 
@@ -135,21 +155,32 @@ func ladder_at(rect: Rect2) -> bool:
 
 ## ── 小地图导出（调试用，不进游戏画面）──────────────────
 ## 每次生成世界后把地形自检图写到工程目录，方便一眼看生成结果。
-func dump_minimap(half_cols: int = 700) -> void:
-	var k_min := -9
-	var k_max := 4
-	var cw := 2                      ## 每列几像素
-	var ch := 3                      ## 每行几像素
+## 性能：用 PackedByteArray 直接填像素（不是逐个 set_pixel），并且同一个种子只导一次 ——
+## 之前按 R 重开时会重新生成一百多万个像素，那就是"按 R 会卡一下"的原因。
+static var _dumped_seed: int = 0
+
+
+func dump_minimap(half_cols: int = 520) -> void:
+	if _dumped_seed == world_seed:
+		return
+	_dumped_seed = world_seed
+	var k_min := -7
+	var k_max := 3
+	var cw := 2
+	var ch := 2
 	var rows := (k_max - k_min + 1) * TerrainGen.BAND_ROWS
 	var w := half_cols * 2 * cw
 	var h := rows * ch
-	var img := Image.create(w, h, false, Image.FORMAT_RGBA8)
-	img.fill(Color(1, 1, 1, 1))
+	var buf := PackedByteArray()
+	buf.resize(w * h * 4)
+	buf.fill(255)                                    # 纸色底（白）
 	var s := world_seed
-	var col_bridge := Color(0.85, 0.45, 0.10)
-	var col_struct := Color(0.15, 0.55, 0.20)
-	var col_radical := Color(0.90, 0.15, 0.45)
-	var col_destroyed := Color(1, 1, 1)
+	var c_bridge := Color(0.85, 0.45, 0.10)
+	var c_struct := Color(0.15, 0.55, 0.20)
+	var c_radical := Color(0.90, 0.15, 0.45)
+	var c_destroy := Color(0.80, 0.80, 0.80)
+	var c_home := Color(1, 0, 0)
+
 	for i in range(half_cols * 2):
 		var cx := -half_cols + i
 		for k in range(k_min, k_max + 1):
@@ -157,42 +188,58 @@ func dump_minimap(half_cols: int = 700) -> void:
 			if c.x == 0:
 				continue
 			var g: float = BiomeTable.gray(TerrainGen.biome_at(cx, s))
-			var base := Color(g * 0.55, g * 0.55, g * 0.60)
+			var base := Color(g * 0.55, g * 0.55, g * 0.62)
 			if c.x == 2:
-				base = col_bridge
+				base = c_bridge
 			for r in range(TerrainGen.BAND_ROWS):
 				if r < c.y or r >= c.y + c.w:
 					continue
-				if c.x == 1 and r == c.y:
-					base = base.lightened(0.30)     # 地表行画亮一点
-				var sc := TerrainGen.struct_cell(cx, k * TerrainGen.BAND_ROWS + r, s)
 				var col := base
+				if c.x == 1 and r == c.y:
+					col = base.lightened(0.35)
+				var sc := TerrainGen.struct_cell(cx, k * TerrainGen.BAND_ROWS + r, s)
 				if sc != "" and sc != ".":
-					col = col_struct
+					col = c_struct
 				if TerrainGen.has_radical(cx, k * TerrainGen.BAND_ROWS + r, s):
-					col = col_radical
+					col = c_radical
 				if _destroyed.has(Vector2i(cx, k * TerrainGen.BAND_ROWS + r)):
-					col = col_destroyed
-				var py := (k - k_min) * TerrainGen.BAND_ROWS + r
-				for dx in range(cw):
-					for dy in range(ch):
-						img.set_pixel(i * cw + dx, py * ch + dy, col)
+					col = c_destroy
+				_px(buf, w, i * cw, ((k - k_min) * TerrainGen.BAND_ROWS + r) * ch,
+					cw, ch, col)
 	# 出生点标记
-	var home_x := half_cols * cw
 	for dx in range(-3, 4):
 		for dy in range(-6, 7):
-			var px := home_x + dx
-			var py := (0 - k_min) * TerrainGen.BAND_ROWS * ch + dy
-			if px >= 0 and px < w and py >= 0 and py < h:
-				img.set_pixel(px, py, Color(1, 0, 0))
+			_px(buf, w, half_cols * cw + dx,
+				(0 - k_min) * TerrainGen.BAND_ROWS * ch + dy, 1, 1, c_home)
+	var img := Image.create_from_data(w, h, false, Image.FORMAT_RGBA8, buf)
 	var path := "res://debug_minimap.png"
-	var err := img.save_png(path)
-	if err != OK:
+	if img.save_png(path) != OK:
 		path = "user://debug_minimap.png"
 		img.save_png(path)
 	print("MO: 小地图已导出 -> ", ProjectSettings.globalize_path(path),
-		"（宽 %d 列，%d~%d 层；灰=岛 橙=桥 绿=结构 粉=含字 红点=出生点）"
+		"（%d 列 × %d~%d 层；灰=岛 橙=桥 绿=结构 粉=含字 红=出生点）"
 			% [half_cols * 2, k_min, k_max])
+
+
+func _px(buf: PackedByteArray, w: int, x: int, y: int, cw: int, ch: int, c: Color) -> void:
+	var r := int(c.r * 255.0)
+	var g := int(c.g * 255.0)
+	var b := int(c.b * 255.0)
+	var h := buf.size() / 4 / w
+	for dy in range(ch):
+		var yy := y + dy
+		if yy < 0 or yy >= h:
+			continue
+		var row := yy * w
+		for dx in range(cw):
+			var xx := x + dx
+			if xx < 0 or xx >= w:
+				continue
+			var o := (row + xx) * 4
+			buf[o] = r
+			buf[o + 1] = g
+			buf[o + 2] = b
+			buf[o + 3] = 255
 
 
 ## 这一格是不是已经被莫永久抹掉了（装饰层用它判断"这里不再长东西"）
@@ -363,7 +410,7 @@ func _spawn_marker(cell: Vector2i, ch: String) -> void:
 		return
 	var node: Node2D = null
 	var rest_on_floor := false
-	var word_r := TerrainGen.rand01(cell.x, cell.y, world_seed + 3301)
+	var word_r := TerrainGen.hash01(cell.x, cell.y, world_seed + 3301)
 	match ch:
 		"E":
 			var e := RedBlock.new()
@@ -414,7 +461,7 @@ func _spawn_boss(cell: Vector2i) -> void:
 func _random_radical(cell: Vector2i, salt: int) -> RadicalData:
 	if _lib == null or _lib.radicals.is_empty():
 		return null
-	var i := int(TerrainGen.rand01(cell.x, cell.y, world_seed + salt) * _lib.radicals.size())
+	var i := int(TerrainGen.hash01(cell.x, cell.y, world_seed + salt) * float(_lib.radicals.size()))
 	return _lib.radicals[clampi(i, 0, _lib.radicals.size() - 1)]
 
 

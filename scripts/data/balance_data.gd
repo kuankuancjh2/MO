@@ -37,6 +37,12 @@ extends Resource
 @export var coyote_time: float = 0.10
 @export var jump_buffer_time: float = 0.12
 
+@export_group("冲刺")
+## Shift 冲刺：有冷却
+@export var dash_speed: float = 1200.0
+@export var dash_time: float = 0.16
+@export var dash_cooldown: float = 1.15
+
 @export_group("地面消失")
 ## 核心手感参数：踩上去后多少秒消失（调快 = 地面碎得更急，更逼你往前跑）
 @export var vanish_time: float = 2.6
@@ -52,11 +58,11 @@ extends Resource
 
 @export_group("掉落伤害")
 ## 低于这个高度完全没事（普通起跳 1.88 格，永不触发）
-@export var fall_safe_tiles: float = 4.5
+@export var fall_safe_tiles: float = 6.0
 ## 低于这个高度可以靠「落地前按跳跃」卸力免伤；再高就免不掉了
 @export var fall_cancel_max_tiles: float = 12.0
 ## 落地前多少秒内按过跳跃算作卸力成功
-@export var fall_landing_cancel_window: float = 0.22
+@export var fall_landing_cancel_window: float = 0.38
 ## 触发时的伤害（固定 1 心，上限低）
 @export var fall_damage_amount: float = 1.0
 ## 掉落伤害是否可以致死。false = 摔不死，最多剩 1 心。
@@ -91,7 +97,7 @@ extends Resource
 @export_group("商店")
 @export var shop_heal_price: int = 2
 @export var shop_word_price: int = 5
-@export var shop_slot_price: int = 8
+@export var shop_extend_price: int = 3
 
 @export_group("Boss「有」")
 @export var boss_hp: float = 20.0

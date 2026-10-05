@@ -28,7 +28,6 @@ func _draw() -> void:
 	var cfg := Assets.cfg
 	var f := Assets.font
 	var line_h := 18.0
-	var slots: int = RunState.slot_count
 	var y := 0.0
 
 	# 标题
@@ -36,37 +35,38 @@ func _draw() -> void:
 		draw_string(f, Vector2(0, 12), "字", HORIZONTAL_ALIGNMENT_LEFT, -1,
 			int(cfg.hud_font_size * 0.8), cfg.color_hud_dim)
 
-	# 一排字砖（黑白：白砖 + 黑边 + 黑字 —— 和地图同一种"纸上的字"语言）
-	for i in range(slots):
-		var x := (i + 1) * (BLOCK + GAP)
-		var r := Rect2(x, -BLOCK * 0.5, BLOCK, BLOCK)
-		if i < RunState.radicals.size():
-			var d: RadicalData = RunState.radicals[i]
-			draw_rect(r, Color(1, 1, 1, 0.95), true)
-			draw_rect(r, Color(0.10, 0.10, 0.10, 0.95), false, 2.0)
-			if f != null:
-				var ch: String = d.composed_char
-				var fs := int(cfg.hud_font_size)
-				var sz := f.get_string_size(ch, HORIZONTAL_ALIGNMENT_LEFT, -1, fs)
-				draw_string(f, Vector2(x + BLOCK * 0.5 - sz.x * 0.5,
-					sz.y * 0.5 - 5.0), ch, HORIZONTAL_ALIGNMENT_LEFT, -1, fs,
-					Color(0.10, 0.10, 0.10))
-		else:
-			# 空槽位 = 虚线方块
-			_draw_dashed_rect(r, Color(0.10, 0.10, 0.10, 0.22))
+	# 一个字的砖（黑白：白砖 + 黑边 + 黑字），右边一条剩余时间
+	var r := Rect2(BLOCK + GAP, -BLOCK * 0.5, BLOCK, BLOCK)
+	var d: RadicalData = RunState.current()
+	if d != null:
+		draw_rect(r, Color(1, 1, 1, 0.95), true)
+		draw_rect(r, Color(0.10, 0.10, 0.10, 0.95), false, 2.0)
+		if f != null:
+			var ch: String = d.composed_char
+			var fs := int(cfg.hud_font_size)
+			var sz := f.get_string_size(ch, HORIZONTAL_ALIGNMENT_LEFT, -1, fs)
+			draw_string(f, Vector2(r.position.x + BLOCK * 0.5 - sz.x * 0.5,
+				sz.y * 0.5 - 5.0), ch, HORIZONTAL_ALIGNMENT_LEFT, -1, fs,
+				Color(0.10, 0.10, 0.10))
+		# 剩余时间条：字是临时的，要能一眼看出还剩多久
+		var frac := clampf(RunState.radical_left / RunState.RADICAL_TIME, 0.0, 1.0)
+		var bar := Rect2(r.position.x, r.end.y + 5.0, BLOCK, 5.0)
+		draw_rect(bar, Color(0.10, 0.10, 0.10, 0.18), true)
+		draw_rect(Rect2(bar.position, Vector2(BLOCK * frac, 5.0)),
+			Color(0.10, 0.10, 0.10, 0.85), true)
+	else:
+		# 空位 = 虚线方块
+		_draw_dashed_rect(r, Color(0.10, 0.10, 0.10, 0.22))
 
-	# 每个字的说明
-	y = BLOCK * 0.5 + line_h
-	for d in RunState.radicals:
-		if f == null:
-			break
-		var text := "%s：%s" % [d.composed_char, d.summary()]
-		draw_string(f, Vector2(0, y), text, HORIZONTAL_ALIGNMENT_LEFT, 560.0,
-			int(cfg.hud_font_size * 0.68), Color(0.16, 0.16, 0.16, 0.9))
-		y += line_h * 0.86
-	if RunState.radicals.is_empty() and f != null:
-		draw_string(f, Vector2(0, y), "撞碎地里的字块，把「莫」填成新的字",
-			HORIZONTAL_ALIGNMENT_LEFT, 520.0, int(cfg.hud_font_size * 0.68), cfg.color_hud_dim)
+	# 说明
+	y = BLOCK * 0.5 + line_h + 6.0
+	if d != null and f != null:
+		draw_string(f, Vector2(0, y), "%s：%s" % [d.composed_char, d.summary()],
+			HORIZONTAL_ALIGNMENT_LEFT, 620.0, int(cfg.hud_font_size * 0.68),
+			Color(0.16, 0.16, 0.16, 0.9))
+	elif f != null:
+		draw_string(f, Vector2(0, y), "踩碎地里的字块，把「莫」填成新的字",
+			HORIZONTAL_ALIGNMENT_LEFT, 620.0, int(cfg.hud_font_size * 0.68), cfg.color_hud_dim)
 
 
 func _draw_dashed_rect(r: Rect2, c: Color) -> void:

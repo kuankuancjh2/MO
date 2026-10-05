@@ -55,9 +55,14 @@ func _on_body_entered(body: Node2D) -> void:
 			queue_free()
 		return
 	if body is SolidTile:
-		if breaks_blocks:
-			(body as SolidTile).on_touched(null)
-			queue_free()
+		# ★ 墨点会打碎方块：直接把那一格抹掉（不只是开始倒计时）
+		var t := body as SolidTile
+		var w := t.world
+		if w != null and w.has_method("break_cell"):
+			w.break_cell(t.cell)
+		else:
+			t.on_touched(null)
+		queue_free()
 		return
 	if body.has_method("hit"):
 		body.hit(damage, dir * knockback)
