@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="RadicalData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/radical_data.gd" id="1_nuygs"]
+
+[resource]
+script = ExtResource("1_nuygs")
+id = "mo_shi"
+radical_char = "饣"
+composed_char = "馍"
+radical_position = "left"
+effect_type = 0
+display_name = "口粮"
+description = "拾取时立即回复 1 心"
+downside = "无"
+tint = Color(1, 0.8509804, 0.627451, 1)
+heal_on_pickup = 1.0
+synergy_tags = PackedStringArray("饣")

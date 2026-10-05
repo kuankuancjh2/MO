@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="StructureLibrary" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/structure_library.gd" id="1_va5xb"]
+[ext_resource type="Script" path="res://scripts/data/structure_data.gd" id="2_c8nkw"]
+[ext_resource type="Resource" path="res://data/structures/ladder_tower.tres" id="3_mu006"]
+[ext_resource type="Resource" path="res://data/structures/hut.tres" id="4_ctmfe"]
+[ext_resource type="Resource" path="res://data/structures/castle.tres" id="5_720yx"]
+[ext_resource type="Resource" path="res://data/structures/tower.tres" id="6_46j5b"]
+[ext_resource type="Resource" path="res://data/structures/stall.tres" id="7_6nyoq"]
+[ext_resource type="Resource" path="res://data/structures/arch.tres" id="8_2exrn"]
+[ext_resource type="Resource" path="res://data/structures/gate.tres" id="9_20c4h"]
+[ext_resource type="Resource" path="res://data/structures/colonnade.tres" id="10_mfrmw"]
+[ext_resource type="Resource" path="res://data/structures/grave.tres" id="11_1mg4s"]
+[ext_resource type="Resource" path="res://data/structures/market.tres" id="12_2lvuk"]
+[ext_resource type="Resource" path="res://data/structures/hall.tres" id="13_7vgq7"]
+
+[resource]
+script = ExtResource("1_va5xb")
+structures = Array[ExtResource("2_c8nkw")]([ExtResource("3_mu006"), ExtResource("4_ctmfe"), ExtResource("5_720yx"), ExtResource("6_46j5b"), ExtResource("7_6nyoq"), ExtResource("8_2exrn"), ExtResource("9_20c4h"), ExtResource("10_mfrmw"), ExtResource("11_1mg4s"), ExtResource("12_2lvuk"), ExtResource("13_7vgq7")])

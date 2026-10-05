@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="RadicalData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/radical_data.gd" id="1_gmjdv"]
+
+[resource]
+script = ExtResource("1_gmjdv")
+id = "mo_cao"
+radical_char = "艹"
+composed_char = "蘑"
+display_name = "菌生"
+description = "拾取时回 1 心，且每 18 秒自动回 1 心"
+downside = "移速 -5%"
+tint = Color(0.7882353, 0.9098039, 0.627451, 1)
+move_factor = 0.95
+heal_on_pickup = 1.0
+regen_period = 18.0
+synergy_tags = PackedStringArray("艹")

@@ -1,0 +1,7 @@
+[gd_resource type="Resource" script_class="AssetConfig" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/asset_config.gd" id="1_g855i"]
+
+[resource]
+script = ExtResource("1_g855i")
+system_font_names = PackedStringArray("Microsoft YaHei", "SimHei", "Noto Sans SC", "PingFang SC", "Source Han Sans SC", "sans-serif")

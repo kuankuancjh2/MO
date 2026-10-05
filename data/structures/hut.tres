@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="StructureData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/structure_data.gd" id="1_eguja"]
+
+[resource]
+script = ExtResource("1_eguja")
+id = "hut"
+display_name = "小屋"
+grid = PackedStringArray("...RRR...", ".#######.", "##V###V##", ".........")
+tags = PackedStringArray("hut")

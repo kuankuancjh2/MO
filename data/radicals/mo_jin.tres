@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="RadicalData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/radical_data.gd" id="1_c6ckp"]
+
+[resource]
+script = ExtResource("1_c6ckp")
+id = "mo_jin"
+radical_char = "钅"
+composed_char = "镆"
+radical_position = "left"
+display_name = "锋"
+description = "攻击力 +80%"
+downside = "出招更慢（冷却 +35%）"
+tint = Color(0.84705883, 0.8156863, 1, 1)
+attack_factor = 1.8
+attack_cooldown_factor = 1.35
+synergy_tags = PackedStringArray("钅")

@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="RadicalData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/radical_data.gd" id="1_mkw4h"]
+
+[resource]
+script = ExtResource("1_mkw4h")
+id = "mo_shou"
+radical_char = "扌"
+composed_char = "摸"
+radical_position = "left"
+effect_type = 1
+display_name = "探囊"
+description = "按 E 把附近的金币和偏旁一把抓过来"
+downside = "无"
+tint = Color(1, 0.6901961, 0.8156863, 1)
+skill_action = "skill_2"
+cooldown = 8.0
+synergy_tags = PackedStringArray("扌")

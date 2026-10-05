@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="RadicalData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/radical_data.gd" id="1_ciukm"]
+
+[resource]
+script = ExtResource("1_ciukm")
+id = "mo_chong"
+radical_char = "虫"
+composed_char = "蟆"
+radical_position = "left"
+display_name = "蝉蜕"
+description = "跳得更高，并**永久**解锁二段跳（特性，跨局保留）"
+downside = "无"
+tint = Color(0.65882355, 0.8784314, 0.41568628, 1)
+jump_factor = 1.08
+unlocks_trait = "double_jump"
+synergy_tags = PackedStringArray("虫")

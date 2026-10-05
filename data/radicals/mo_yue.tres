@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="RadicalData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/radical_data.gd" id="1_riquh"]
+
+[resource]
+script = ExtResource("1_riquh")
+id = "mo_yue"
+radical_char = "月"
+composed_char = "膜"
+radical_position = "left"
+display_name = "护膜"
+description = "受到的伤害减少 40%"
+downside = "移速 -10%"
+tint = Color(0.7490196, 0.9019608, 0.78431374, 1)
+move_factor = 0.9
+damage_taken_factor = 0.6
+synergy_tags = PackedStringArray("月")

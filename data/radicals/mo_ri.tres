@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="RadicalData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/radical_data.gd" id="1_7ml6i"]
+
+[resource]
+script = ExtResource("1_7ml6i")
+id = "mo_ri"
+radical_char = "日"
+composed_char = "暮"
+display_name = "暮色"
+description = "你的地面消失速度变慢 40%"
+downside = "天黑了：只有你周围一小圈看得见"
+tint = Color(1, 0.8117647, 0.41960785, 1)
+vanish_slow_factor = 1.4
+vision_factor = 0.35
+synergy_tags = PackedStringArray("日")
