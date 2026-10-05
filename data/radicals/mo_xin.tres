@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="RadicalData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/radical_data.gd" id="1_jewym"]
+
+[resource]
+script = ExtResource("1_jewym")
+id = "mo_xin"
+radical_char = "心"
+composed_char = "慕"
+display_name = "暮慕"
+description = "磁吸：金币与掉落物会飞向你"
+downside = "敌人也会被你牵过来，且你移速 -8%"
+tint = Color(1, 0.61960787, 0.76862746, 1)
+move_factor = 0.92
+attract = true
+synergy_tags = PackedStringArray("心")

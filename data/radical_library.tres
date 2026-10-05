@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="RadicalLibrary" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/radical_data.gd" id="1_8k5l3"]
+[ext_resource type="Resource" path="res://data/radicals/mo_xin.tres" id="2_3lajq"]
+[ext_resource type="Resource" path="res://data/radicals/mo_ri.tres" id="3_nd72q"]
+[ext_resource type="Resource" path="res://data/radicals/mo_shi.tres" id="4_pghqr"]
+[ext_resource type="Resource" path="res://data/radicals/mo_shui.tres" id="5_unpgc"]
+[ext_resource type="Resource" path="res://data/radicals/mo_tu.tres" id="6_qufh1"]
+[ext_resource type="Resource" path="res://data/radicals/mo_yue.tres" id="7_b3v6p"]
+[ext_resource type="Script" path="res://scripts/data/radical_library.gd" id="8_te5ys"]
+
+[resource]
+script = ExtResource("8_te5ys")
+radicals = Array[ExtResource("1_8k5l3")]([ExtResource("2_3lajq"), ExtResource("3_nd72q"), ExtResource("4_pghqr"), ExtResource("5_unpgc"), ExtResource("6_qufh1"), ExtResource("7_b3v6p")])
