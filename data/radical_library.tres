@@ -1,14 +1,19 @@
 [gd_resource type="Resource" script_class="RadicalLibrary" format=3]
 
-[ext_resource type="Script" path="res://scripts/data/radical_data.gd" id="1_8k5l3"]
-[ext_resource type="Resource" path="res://data/radicals/mo_xin.tres" id="2_3lajq"]
-[ext_resource type="Resource" path="res://data/radicals/mo_ri.tres" id="3_nd72q"]
-[ext_resource type="Resource" path="res://data/radicals/mo_shi.tres" id="4_pghqr"]
-[ext_resource type="Resource" path="res://data/radicals/mo_shui.tres" id="5_unpgc"]
-[ext_resource type="Resource" path="res://data/radicals/mo_tu.tres" id="6_qufh1"]
-[ext_resource type="Resource" path="res://data/radicals/mo_yue.tres" id="7_b3v6p"]
-[ext_resource type="Script" path="res://scripts/data/radical_library.gd" id="8_te5ys"]
+[ext_resource type="Script" path="res://scripts/data/radical_data.gd" id="1_qufh1"]
+[ext_resource type="Resource" path="res://data/radicals/mo_xin.tres" id="2_b3v6p"]
+[ext_resource type="Resource" path="res://data/radicals/mo_ri.tres" id="3_te5ys"]
+[ext_resource type="Resource" path="res://data/radicals/mo_shi.tres" id="4_fsbka"]
+[ext_resource type="Resource" path="res://data/radicals/mo_shui.tres" id="5_dsjwj"]
+[ext_resource type="Resource" path="res://data/radicals/mo_tu.tres" id="6_tvvdt"]
+[ext_resource type="Resource" path="res://data/radicals/mo_yue.tres" id="7_s6sbi"]
+[ext_resource type="Resource" path="res://data/radicals/mo_chong.tres" id="8_ttfec"]
+[ext_resource type="Resource" path="res://data/radicals/mo_shou.tres" id="9_oako5"]
+[ext_resource type="Resource" path="res://data/radicals/mo_cao.tres" id="10_5yxt8"]
+[ext_resource type="Resource" path="res://data/radicals/mo_yan.tres" id="11_twt8u"]
+[ext_resource type="Resource" path="res://data/radicals/mo_jin.tres" id="12_gm4c8"]
+[ext_resource type="Script" path="res://scripts/data/radical_library.gd" id="13_idhk5"]
 
 [resource]
-script = ExtResource("8_te5ys")
-radicals = Array[ExtResource("1_8k5l3")]([ExtResource("2_3lajq"), ExtResource("3_nd72q"), ExtResource("4_pghqr"), ExtResource("5_unpgc"), ExtResource("6_qufh1"), ExtResource("7_b3v6p")])
+script = ExtResource("13_idhk5")
+radicals = Array[ExtResource("1_qufh1")]([ExtResource("2_b3v6p"), ExtResource("3_te5ys"), ExtResource("4_fsbka"), ExtResource("5_dsjwj"), ExtResource("6_tvvdt"), ExtResource("7_s6sbi"), ExtResource("8_ttfec"), ExtResource("9_oako5"), ExtResource("10_5yxt8"), ExtResource("11_twt8u"), ExtResource("12_gm4c8")])

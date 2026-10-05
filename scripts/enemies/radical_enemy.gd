@@ -1,14 +1,11 @@
 class_name RadicalEnemy
-extends AnimatableBody2D
-## 红色偏旁怪：稀有的漂浮怪，身上是一个**红色偏旁/字**。
+extends CharacterBody2D
+## 红色偏旁怪：漂浮的怪，身上是一个**红色偏旁/字**。
 ##
 ## 碰到它不掉血 —— 而是**注入一个临时效果**：有正面也有负面。
 ## 所以「要不要主动撞上去赌一把」是一个真实的决策。
-##
-## 踩它 / 撞它 都会触发效果（想主动吸就走过去，想躲就绕开），触发后它消失。
+## 它**不能被骑**（rideable = false）：撞上去（包括从上方踩）就会触发效果然后消失。
 
-## 效果表。kind 由 _apply() 分发。
-## positive 只用于文案颜色（绿/红），行为完全由 kind 决定。
 const EFFECTS := [
 	{"glyph": "心", "positive": true, "kind": "heal", "amount": 1.0, "duration": 0.0,
 		"text": "红心：回 1 心"},
@@ -22,16 +19,19 @@ const EFFECTS := [
 
 var effect: Dictionary = {}
 var b: BalanceData
+var rideable := false
+var move_delta := Vector2.ZERO
 
-var _speed := 58.0
+var _speed := 62.0
 var _dead := false
 var _flash := 0.0
 var _t := 0.0
 var _target: Node2D
 var _search := 0.0
 var _half := 17.0
-var _vel := Vector2.ZERO
 var _collected := false
+var _prev_pos := Vector2.ZERO
+var _art: Texture2D
 
 
 func setup(balance: BalanceData, which: int = -1) -> void:
@@ -39,8 +39,7 @@ func setup(balance: BalanceData, which: int = -1) -> void:
 	var i := which
 	if i < 0:
 		i = randi() % EFFECTS.size()
-	i = clampi(i, 0, EFFECTS.size() - 1)
-	effect = EFFECTS[i]
+	effect = EFFECTS[clampi(i, 0, EFFECTS.size() - 1)]
 
 
 func kind() -> String:
@@ -54,7 +53,7 @@ func glyph() -> String:
 func _ready() -> void:
 	if b == null:
 		b = Balance.d
-	collision_layer = 4          # 只作为"可碰撞/可打中"的对象，不当地板（踩上去不该能站）
+	collision_layer = 4
 	collision_mask = 0
 	z_index = 3
 	var cs := CollisionShape2D.new()
@@ -62,7 +61,9 @@ func _ready() -> void:
 	c.radius = _half
 	cs.shape = c
 	add_child(cs)
+	_art = Assets.get_art("enemy_radical")
 	_search = randf() * 0.4
+	_prev_pos = position
 
 
 func _physics_process(delta: float) -> void:
@@ -74,29 +75,27 @@ func _physics_process(delta: float) -> void:
 	if _search <= 0.0:
 		_search = 0.4
 		_target = get_tree().get_first_node_in_group("player") as Node2D
+
 	if _target != null and is_instance_valid(_target):
 		var d := _target.global_position - global_position
-		if d.length() > 6.0:
-			_vel = _vel.lerp(d.normalized() * _speed, clampf(delta * 1.6, 0.0, 1.0))
-	position += _vel * delta
-	position.y += sin(_t * 2.6) * 0.4
+		var want := d.normalized() * _speed
+		if d.length() < 40.0:
+			want = Vector2.ZERO
+		velocity = velocity.lerp(want, clampf(delta * 2.2, 0.0, 1.0))
+	velocity.y += sin(_t * 2.6) * 6.0
+	_prev_pos = global_position
+	move_and_slide()
+	move_delta = global_position - _prev_pos
 	queue_redraw()
 
 
-## 侧碰：注入效果（不扣血）
+## 碰到就注入效果（不掉血）
 func try_contact_damage(p: Player) -> void:
 	_consume(p)
 
 
-## 踩头：同样注入效果（想主动吸就踩它）
-func on_stomped(p: Player) -> void:
-	p.bounce(0.7)
-	_consume(p)
-
-
 func hit(_damage: float, _knockback: Vector2 = Vector2.ZERO) -> void:
-	# 打不死它 —— 它就是来跟你赌一把的
-	_flash = 0.16
+	_flash = 0.16          # 打不死它 —— 它就是来跟你赌一把的
 	queue_redraw()
 
 
@@ -108,8 +107,7 @@ func _consume(p: Player) -> void:
 	_apply(p)
 	var main := get_tree().get_first_node_in_group("main")
 	if main != null and main.has_method("announce_text"):
-		var pos_v: bool = bool(effect.get("positive", false))
-		main.announce_text(String(effect.get("text", "")), pos_v)
+		main.announce_text(String(effect.get("text", "")), bool(effect.get("positive", false)))
 	var parent := get_parent()
 	if parent != null:
 		if parent.has_method("consume_cell"):
@@ -141,16 +139,19 @@ func _apply(p: Player) -> void:
 
 
 func _draw() -> void:
+	if _art != null:
+		var sz := _art.get_size()
+		draw_texture_rect(_art, Rect2(-sz * 0.5, sz), false, Color(1, 1, 1, 1))
+		return
 	var red := Color(1.0, 0.28, 0.28)
 	if _flash > 0.0:
 		red = Color.WHITE
-	# 圆盘底
 	draw_circle(Vector2.ZERO, _half, Color(0.10, 0.06, 0.08, 0.85))
 	draw_arc(Vector2.ZERO, _half, 0.0, TAU, 28, red, 2.5)
 	var f := Assets.font
 	if f != null:
 		var ch := glyph()
 		var fs := Assets.cfg.radical_font_size
-		var sz := f.get_string_size(ch, HORIZONTAL_ALIGNMENT_LEFT, -1, fs)
-		draw_string(f, Vector2(-sz.x * 0.5, sz.y * 0.5 - 5.0), ch,
+		var sz2 := f.get_string_size(ch, HORIZONTAL_ALIGNMENT_LEFT, -1, fs)
+		draw_string(f, Vector2(-sz2.x * 0.5, sz2.y * 0.5 - 5.0), ch,
 			HORIZONTAL_ALIGNMENT_LEFT, -1, fs, red)

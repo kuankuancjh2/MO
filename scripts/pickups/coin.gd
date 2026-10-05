@@ -35,8 +35,9 @@ func _process(delta: float) -> void:
 	if _player == null or not is_instance_valid(_player):
 		_player = get_tree().get_first_node_in_group("player")
 		return
+	var mul: float = _player.get("attract_radius_mul") if "attract_radius_mul" in _player else 1.0
 	var d := _player.global_position - global_position
-	if d.length() < Balance.d.attract_radius:
+	if d.length() < Balance.d.attract_radius * mul:
 		global_position += d.normalized() * Balance.d.attract_speed * delta
 
 

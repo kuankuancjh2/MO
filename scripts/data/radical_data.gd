@@ -28,8 +28,16 @@ enum EffectType {
 @export var damage_taken_factor: float = 1.0  ## <1 受伤更少
 @export var vision_factor: float = 1.0        ## <1 视野变暗
 @export var attack_factor: float = 1.0        ## >1 攻击更强
+@export var attack_cooldown_factor: float = 1.0  ## >1 攻击更慢
+@export var jump_factor: float = 1.0          ## >1 跳得更高
 @export var attract: bool = false             ## 磁吸（金币飞向你 / 敌人也漂向你）
 @export var heal_on_pickup: float = 0.0       ## 拾取时立即回血
+@export var regen_period: float = 0.0         ## >0 = 每隔这么多秒回 1 心
+
+@export_group("永久特性")
+## 不为空则永久解锁一个特性（写进存档，之后每局都生效）
+## 目前支持："double_jump"
+@export var unlocks_trait: String = ""
 
 @export_group("主动技能")
 @export var skill_action: String = ""         ## "skill_1" / "skill_2"

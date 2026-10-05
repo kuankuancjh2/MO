@@ -1,6 +1,7 @@
 class_name RedBlock
 extends EnemyBase
 ## 红色方块怪（巡逻）：遇墙转身，走到悬崖边也转身 —— 不会自己掉下去。
+## 你可以跳到它头上骑着它走。
 
 var dir: int = -1
 var speed: float = 68.0
@@ -11,6 +12,10 @@ var _ledge: RayCast2D
 func setup(balance: BalanceData, hp_mul: float = 1.0) -> void:
 	super.setup(balance, hp_mul)
 	speed = balance.enemy_speed
+
+
+func art_name() -> String:
+	return "enemy_block"
 
 
 func _build() -> void:
@@ -36,6 +41,8 @@ func _flip() -> void:
 
 
 func _draw() -> void:
+	if draw_art_if_any():
+		return
 	var c := sprite_color()
 	var r := Rect2(Vector2(-_half, -_half), Vector2(_half * 2.0, _half * 2.0))
 	draw_rect(r, c, true)

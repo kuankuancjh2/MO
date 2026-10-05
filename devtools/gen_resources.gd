@@ -73,6 +73,21 @@ func _gen_radical_library() -> void:
 		["mo_yue", "月", "膜", "left", RadicalData.EffectType.PASSIVE, "护膜",
 			"受到的伤害减少 40%", "移速 -10%",
 			Color("#bfe6c8"), {"damage_taken_factor": 0.6, "move_factor": 0.90}],
+		["mo_chong", "虫", "蟆", "left", RadicalData.EffectType.PASSIVE, "蝉蜕",
+			"跳得更高，并**永久**解锁二段跳（特性，跨局保留）", "无",
+			Color("#a8e06a"), {"jump_factor": 1.08, "unlocks_trait": "double_jump"}],
+		["mo_shou", "扌", "摸", "left", RadicalData.EffectType.ACTIVE, "探囊",
+			"按 E 把附近的金币和偏旁一把抓过来", "无",
+			Color("#ffb0d0"), {"skill_action": "skill_2", "cooldown": 8.0}],
+		["mo_cao", "艹", "蘑", "bottom", RadicalData.EffectType.PASSIVE, "菌生",
+			"拾取时回 1 心，且每 18 秒自动回 1 心", "移速 -5%",
+			Color("#c9e8a0"), {"heal_on_pickup": 1.0, "regen_period": 18.0, "move_factor": 0.95}],
+		["mo_yan", "讠", "谟", "left", RadicalData.EffectType.PASSIVE, "谋",
+			"看得见藏起来的字（藏字的砖会发亮），且地面消失更慢", "无",
+			Color("#9fd8d0"), {"vanish_slow_factor": 1.1}],
+		["mo_jin", "钅", "镆", "left", RadicalData.EffectType.PASSIVE, "锋",
+			"攻击力 +80%", "出招更慢（冷却 +35%）",
+			Color("#d8d0ff"), {"attack_factor": 1.8, "attack_cooldown_factor": 1.35}],
 	]
 
 	var lib := RadicalLibrary.new()
@@ -144,6 +159,61 @@ func _gen_structure_library() -> void:
 				"..###..",
 				"...W...",
 				".......",
+			]),
+		},
+		{
+			"id": "gate",
+			"name": "拱门",
+			"weight": 0.9,
+			# 门洞在地面层，玩家从底下穿过
+			"grid": PackedStringArray([
+				".#####.",
+				"#.....#",
+				"#..W..#",
+				".......",
+			]),
+		},
+		{
+			"id": "colonnade",
+			"name": "柱廊",
+			"weight": 0.8,
+			"grid": PackedStringArray([
+				"#..#..#..#..#",
+				".............",
+			]),
+		},
+		{
+			"id": "grave",
+			"name": "碑",
+			"weight": 1.0,
+			# 小柱子，字嵌在里面
+			"grid": PackedStringArray([
+				"..#..",
+				"..W..",
+				".....",
+			]),
+		},
+		{
+			"id": "market",
+			"name": "集市",
+			"weight": 0.5,
+			"grid": PackedStringArray([
+				"..#######..",
+				"#.........#",
+				"....S.S....",
+			]),
+		},
+		{
+			"id": "hall",
+			"name": "有之殿",
+			"weight": 0.22,
+			# Boss「有」的殿堂：顶棚完整，地面层左右贯通，B = boss
+			"grid": PackedStringArray([
+				"#############",
+				"#...........#",
+				"#...........#",
+				"#....B......#",
+				".............",
 			]),
 		},
 	]

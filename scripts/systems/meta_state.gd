@@ -7,6 +7,7 @@ signal souls_changed(souls: int)
 
 var souls: int = 0
 var upgrades: Dictionary = {}   ## id -> level
+var traits: Dictionary = {}     ## 永久特性，如 {"double_jump": true}
 var best_layer: int = 0
 
 
@@ -16,6 +17,18 @@ func _ready() -> void:
 
 func get_upgrade(id: String) -> int:
 	return int(upgrades.get(id, 0))
+
+
+## ── 永久特性（拿到一次就永久生效，跨局保留）──────────
+func has_trait(name: String) -> bool:
+	return bool(traits.get(name, false))
+
+
+func unlock_trait(name: String) -> void:
+	if has_trait(name):
+		return
+	traits[name] = true
+	save_game()
 
 
 func add_souls(n: int) -> void:
@@ -50,6 +63,7 @@ func save_game() -> void:
 	f.store_string(JSON.stringify({
 		"souls": souls,
 		"upgrades": upgrades,
+		"traits": traits,
 		"best_layer": best_layer,
 	}, "\t"))
 	f.close()
@@ -70,3 +84,6 @@ func load_game() -> void:
 		var up: Variant = parsed.get("upgrades", {})
 		if up is Dictionary:
 			upgrades = up
+		var tr: Variant = parsed.get("traits", {})
+		if tr is Dictionary:
+			traits = tr

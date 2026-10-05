@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="RadicalData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/radical_data.gd" id="1_q3l5m"]
+
+[resource]
+script = ExtResource("1_q3l5m")
+id = "mo_yan"
+radical_char = "讠"
+composed_char = "谟"
+radical_position = "left"
+display_name = "谋"
+description = "看得见藏起来的字（藏字的砖会发亮），且地面消失更慢"
+downside = "无"
+tint = Color(0.62352943, 0.84705883, 0.8156863, 1)
+vanish_slow_factor = 1.1
+synergy_tags = PackedStringArray("讠")

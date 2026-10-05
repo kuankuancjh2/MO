@@ -2,14 +2,13 @@ class_name GameWorld
 extends Node2D
 ## 世界管理器：围绕主角按需生成 / 卸载，并记住「已经被莫抹掉的格子」。
 ##
-## 生成是纯函数，所以卸载远处内容是安全的 —— 回头再看还是同一个地形。
+## 生成是纯函数，所以卸载远处内容是安全的。
 ## 但两类状态必须额外记住：
 ##   1. 被莫踩没 / 撞碎的格子（_destroyed）—— 否则卸载再加载会长回来
 ##   2. 已经生成过的实体所在格（_spawned）—— 否则卸载再加载会翻倍
 ##
-## ★ 性能要点：**实体也必须按范围卸载**。
-## 只卸载方块而不管敌人，会导致玩家一路向右时身后堆满永不释放的怪，
-## 越玩越卡（重开一局就好）—— 这正是之前那个 bug。
+## ★ 性能要点：**实体也必须按范围卸载**。只卸载方块而不管敌人，
+## 会导致越玩越卡（重开一局就好）—— 这正是之前那个 bug。
 
 const REFRESH_MARGIN := 3
 
@@ -22,7 +21,7 @@ var player: Node2D
 
 var _tiles: Dictionary = {}      ## Vector2i -> SolidTile
 var _destroyed: Dictionary = {}  ## Vector2i -> true（永久抹掉的格子）
-var _spawned: Dictionary = {}    ## Vector2i -> Node（敌人 / 字块 / 商店）
+var _spawned: Dictionary = {}    ## Vector2i -> Node（敌人 / 商店 / boss）
 var _anchor := Vector2i(1 << 29, 1 << 29)
 var _lib: RadicalLibrary
 
@@ -36,6 +35,7 @@ func _ready() -> void:
 		world_seed = b.fixed_world_seed
 	else:
 		world_seed = randi()
+	TerrainGen.clear_cache()
 	if ResourceLoader.exists("res://data/radical_library.tres"):
 		_lib = load("res://data/radical_library.tres") as RadicalLibrary
 
@@ -53,6 +53,7 @@ func reset_run(new_seed: bool = true) -> void:
 	_anchor = Vector2i(1 << 29, 1 << 29)
 	if new_seed:
 		world_seed = randi()
+		TerrainGen.clear_cache()
 
 
 func setup(p: Node2D) -> void:
@@ -60,19 +61,21 @@ func setup(p: Node2D) -> void:
 	_refresh(_cell(p.global_position))
 
 
+## 出生点：站在出生列的地表之上（0 层带 ±16 列被强制成连续陆地）
 func spawn_point() -> Vector2:
-	return Vector2(tile * 0.5, -float(tile) * 0.6)
+	var row := TerrainGen.surface_row(0, 0, world_seed)
+	return Vector2(tile * 0.5, row * tile - float(tile) * 0.6)
 
 
-# ── 查询接口（给测试和其它系统用）────────────────────
+# ── 查询接口 ───────────────────────────────────────────
 
 func notify_destroyed(cell: Vector2i) -> void:
 	_destroyed[cell] = true
 	_tiles.erase(cell)
 
 
-## 某个实体"被消耗掉了"（怪被打死 / 字块被撞碎）：
-## 把它的出生格标记为永久消失，否则再过几格回来会原地重生一个 —— 无限刷怪。
+## 某个实体被"消耗掉"（怪被打死 / 字块被撞碎）：
+## 把它的出生格标记为永久消失，否则过几格回来会原地重生 —— 无限刷怪。
 func consume_cell(node: Node) -> void:
 	if node == null or not node.has_meta("spawn_cell"):
 		return
@@ -94,7 +97,6 @@ func entity_count() -> int:
 	return _spawned.size()
 
 
-## 世界里所有活着的节点数（性能回归测试用）
 func node_count() -> int:
 	return get_child_count()
 
@@ -102,10 +104,9 @@ func node_count() -> int:
 ## 「红土」效果：把某点附近的地基直接打碎（脚下崩塌）
 func break_tiles_near(pos: Vector2, radius_cells: int) -> void:
 	var c := _cell(pos)
-	var feet := c.y + 1
 	for dx in range(-radius_cells, radius_cells + 1):
-		for dy in range(0, 2):   # 平台厚 2 格，两层都打掉才是真洞
-			var key := Vector2i(c.x + dx, feet + dy)
+		for dy in range(0, 3):
+			var key := Vector2i(c.x + dx, c.y + 1 + dy)
 			if not _tiles.has(key):
 				continue
 			var t: Node = _tiles[key]
@@ -119,7 +120,27 @@ func break_tiles_near(pos: Vector2, radius_cells: int) -> void:
 				t.queue_free()
 
 
-# ── 主循环：按需加载 / 卸载 ───────────────────────────
+## Boss「有」的造物：凭空造出一块临时方块。
+## 被莫碰过之后它照样会消失 —— 这就是"有"和"莫"的对抗。
+func spawn_temp_tile(cell: Vector2i) -> bool:
+	if _tiles.has(cell) or _destroyed.has(cell):
+		return false
+	if not _in_loaded_rect(cell):
+		return false
+	var t := SolidTile.new()
+	t.setup(cell, tile, self, 0, null)
+	add_child(t)
+	_tiles[cell] = t
+	return true
+
+
+func _in_loaded_rect(cell: Vector2i) -> bool:
+	var min_c := Vector2i(_anchor.x - cols, _anchor.y - rows)
+	var max_c := Vector2i(_anchor.x + cols, _anchor.y + rows)
+	return cell.x >= min_c.x and cell.x <= max_c.x and cell.y >= min_c.y and cell.y <= max_c.y
+
+
+# ── 主循环 ─────────────────────────────────────────────
 
 func _cell(pos: Vector2) -> Vector2i:
 	return Vector2i(floori(pos.x / float(tile)), floori(pos.y / float(tile)))
@@ -137,7 +158,6 @@ func _refresh(c: Vector2i) -> void:
 	_anchor = c
 	var min_c := Vector2i(c.x - cols, c.y - rows)
 	var max_c := Vector2i(c.x + cols, c.y + rows)
-
 	_spawn_tiles(min_c, max_c)
 	_spawn_structures(min_c, max_c)
 	_spawn_random(min_c, max_c, c)
@@ -152,13 +172,17 @@ func _spawn_tiles(min_c: Vector2i, max_c: Vector2i) -> void:
 				continue
 			if not TerrainGen.is_solid(x, y, world_seed):
 				continue
+			var style := TerrainGen.tile_style(x, y, world_seed)
+			var rad: RadicalData = null
+			if TerrainGen.has_radical(x, y, world_seed):
+				rad = _random_radical(key, 11 + style)
 			var t := SolidTile.new()
-			t.setup(key, tile, self)
+			t.setup(key, tile, self, style, rad)
 			add_child(t)
 			_tiles[key] = t
 
 
-## 结构：直接按「槽位 × 层带」盖章，不用逐格问
+## 结构：直接按「槽位 × 层带」盖章
 func _spawn_structures(min_c: Vector2i, max_c: Vector2i) -> void:
 	var si0 := TerrainGen.fdiv(min_c.x - TerrainGen.STRUCT_MARGIN, TerrainGen.STRUCT_SPAN)
 	var si1 := TerrainGen.fdiv(max_c.x - TerrainGen.STRUCT_MARGIN, TerrainGen.STRUCT_SPAN)
@@ -174,13 +198,13 @@ func _spawn_structures(min_c: Vector2i, max_c: Vector2i) -> void:
 
 func _stamp_structure(st: StructureData, si: int, k: int, min_c: Vector2i, max_c: Vector2i) -> void:
 	var ox := TerrainGen.struct_origin_col(si)
-	# 网格最后一行对齐 base_row - 1（玩家身体行）：row = gr - height
 	var base := TerrainGen.struct_base_row(si, k, world_seed)
 	for gr in range(st.height()):
 		var line: String = st.grid[gr]
 		for col in range(line.length()):
 			var ch := line[col]
-			if ch == "." or ch == "#":
+			# '#' 和 'W' 由地形层生成为 SolidTile（W 是"里面藏了偏旁"的方块）
+			if ch == "." or ch == "#" or ch == "W":
 				continue
 			var wx := ox + col
 			var wy := base + gr - st.height()
@@ -189,34 +213,30 @@ func _stamp_structure(st: StructureData, si: int, k: int, min_c: Vector2i, max_c
 			_spawn_marker(Vector2i(wx, wy), ch)
 
 
-## 平台顶上按低概率随机刷东西（密度是刻意压低的）
+## 平台/地表上按低概率随机刷怪（密度刻意压低）
 func _spawn_random(min_c: Vector2i, max_c: Vector2i, center: Vector2i) -> void:
 	var b := Balance.d
 	var k0 := TerrainGen.fdiv(min_c.y, TerrainGen.BAND_ROWS)
 	var k1 := TerrainGen.fdiv(max_c.y, TerrainGen.BAND_ROWS)
-	# 概率累加表：[上限, 标记字符]
 	var table := [
-		[b.word_block_spawn_chance, "W"],
-		[b.word_block_spawn_chance + b.enemy_spawn_chance, "E"],
-		[b.word_block_spawn_chance + b.enemy_spawn_chance + b.seeker_spawn_chance, "K"],
-		[b.word_block_spawn_chance + b.enemy_spawn_chance + b.seeker_spawn_chance
-			+ b.flyer_spawn_chance, "F"],
-		[b.word_block_spawn_chance + b.enemy_spawn_chance + b.seeker_spawn_chance
-			+ b.flyer_spawn_chance + b.radical_enemy_chance, "R"],
+		[b.enemy_spawn_chance, "E"],
+		[b.enemy_spawn_chance + b.seeker_spawn_chance, "K"],
+		[b.enemy_spawn_chance + b.seeker_spawn_chance + b.flyer_spawn_chance, "F"],
+		[b.enemy_spawn_chance + b.seeker_spawn_chance + b.flyer_spawn_chance
+			+ b.radical_enemy_chance, "R"],
 	]
 	for x in range(min_c.x, max_c.x + 1):
 		for k in range(k0, k1 + 1):
-			var top := TerrainGen.platform_top_row(x, k, world_seed)
-			if not TerrainGen.is_solid(x, top, world_seed):
-				continue                       # 这一列在这个层带是洞
-			var cell := Vector2i(x, top - 1)
+			# 站人的那一格 = 地表上面那格
+			var surf := TerrainGen.surface_row(x, k, world_seed)
+			var cell := Vector2i(x, surf - 1)
 			if cell.y < min_c.y or cell.y > max_c.y:
 				continue
 			if _destroyed.has(cell) or _spawned.has(cell):
 				continue
 			if absi(x - center.x) + absi(cell.y - center.y) <= b.spawn_min_distance:
-				continue                       # 别刷在脸上
-			var r := TerrainGen.rand01(x, top, world_seed + 555)
+				continue
+			var r := TerrainGen.rand01(x, surf, world_seed + 555)
 			for entry in table:
 				if r < float(entry[0]):
 					_spawn_marker(cell, String(entry[1]))
@@ -228,17 +248,12 @@ func _spawn_random(min_c: Vector2i, max_c: Vector2i, center: Vector2i) -> void:
 func _spawn_marker(cell: Vector2i, ch: String) -> void:
 	if _destroyed.has(cell) or _spawned.has(cell):
 		return
+	if ch == "B":
+		_spawn_boss(cell)
+		return
 	var node: Node2D = null
 	var rest_on_floor := false
 	match ch:
-		"W":
-			var d := _random_radical(cell, 11)
-			if d == null:
-				return
-			var wb := WordBlock.new()
-			wb.setup(cell, tile, self, d)
-			wb.position = Vector2(cell.x * tile, cell.y * tile)   # 方块用左上角定位
-			node = wb
 		"E":
 			var e := RedBlock.new()
 			e.setup(Balance.d)
@@ -265,16 +280,21 @@ func _spawn_marker(cell: Vector2i, ch: String) -> void:
 			return
 	if node == null:
 		return
-	# 注意：不能用 `node is StaticBody2D` 来区分 —— AnimatableBody2D（飞怪/红偏旁怪）
-	# 也继承自 StaticBody2D，那样它们的 position 永远不会被设置，会全部堆在 (0,0)。
-	if node is WordBlock:
-		pass                                   # 字块用左上角定位，setup 时已经设好了
-	else:
-		node.position = Vector2(cell.x * tile + tile * 0.5,
-			(cell.y + 1) * tile - 18.0 if rest_on_floor else cell.y * tile + tile * 0.5)
+	# 注意：不能用 `node is StaticBody2D` 来区分 —— AnimatableBody2D 也继承自它。
+	node.position = Vector2(cell.x * tile + tile * 0.5,
+		(cell.y + 1) * tile - 18.0 if rest_on_floor else cell.y * tile + tile * 0.5)
 	add_child(node)
 	node.set_meta("spawn_cell", cell)
 	_spawned[cell] = node
+
+
+func _spawn_boss(cell: Vector2i) -> void:
+	var boss := Boss.new()
+	boss.setup(Balance.d, player)
+	boss.position = Vector2(cell.x * tile + tile * 0.5, (cell.y + 1) * tile - 60.0)
+	add_child(boss)
+	boss.set_meta("spawn_cell", cell)
+	_spawned[cell] = boss
 
 
 func _random_radical(cell: Vector2i, salt: int) -> RadicalData:
@@ -298,16 +318,17 @@ func _unload(min_c: Vector2i, max_c: Vector2i) -> void:
 			t.queue_free()
 		_tiles.erase(k)
 
-	# ★ 实体也要卸载。注意用「节点当前所在格」判断，因为敌人会走动；
+	# ★ 实体也要卸载。用「节点当前所在格」判断（敌人会走动），
 	#   但 _spawned 的 key 保持为出生格不动 —— 否则旧格子会被判为"空"而重复刷怪。
-	#   另外这里必须用「无类型」变量接字典的值：条目可能指向已被释放的实例，
-	#   赋给带类型的变量会直接报错。
+	#   这里必须用无类型变量接字典的值：条目可能指向已释放的实例。
 	var drop2: Array = []
 	for key in _spawned.keys():
 		var n = _spawned[key]
 		if n == null or not is_instance_valid(n) or (n as Node).is_queued_for_deletion():
 			drop2.append(key)
 			continue
+		if (n as Node).is_in_group("boss") and (n as Boss).engaged:
+			continue                       # Boss 一旦开打就不随镜头卸载
 		var nc := _cell((n as Node2D).global_position)
 		if nc.x < min_c.x or nc.x > max_c.x or nc.y < min_c.y or nc.y > max_c.y:
 			(n as Node).queue_free()

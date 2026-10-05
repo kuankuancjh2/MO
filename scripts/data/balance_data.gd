@@ -26,8 +26,8 @@ extends Resource
 @export var jump_buffer_time: float = 0.12
 
 @export_group("地面消失")
-## 核心手感参数：踩上去后多少秒消失
-@export var vanish_time: float = 4.0
+## 核心手感参数：踩上去后多少秒消失（调快 = 地面碎得更急，更逼你往前跑）
+@export var vanish_time: float = 2.6
 ## 消失动画三段占比 —— 变色 / 闪烁 / 消散
 @export var vanish_warn_ratio: float = 0.60
 @export var vanish_blink_ratio: float = 0.30
@@ -61,7 +61,7 @@ extends Resource
 @export var enemy_spawn_chance: float = 0.010      ## 红色方块怪（巡逻）
 @export var seeker_spawn_chance: float = 0.004     ## 猎手（追人）
 @export var flyer_spawn_chance: float = 0.005      ## 飞怪
-@export var radical_enemy_chance: float = 0.002    ## 红色偏旁怪
+@export var radical_enemy_chance: float = 0.006    ## 红色偏旁怪
 @export var word_block_spawn_chance: float = 0.010 ## 地上的字块
 ## 离主角多近之内不刷怪（格）
 @export var spawn_min_distance: int = 8
@@ -80,3 +80,8 @@ extends Resource
 @export var shop_heal_price: int = 2
 @export var shop_word_price: int = 5
 @export var shop_slot_price: int = 8
+
+@export_group("Boss「有」")
+@export var boss_hp: float = 20.0
+@export var boss_contact_damage: float = 1.0
+@export var boss_shot_damage: float = 1.0

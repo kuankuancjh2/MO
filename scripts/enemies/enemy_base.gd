@@ -2,12 +2,13 @@ class_name EnemyBase
 extends CharacterBody2D
 ## 地面敌人基类。
 ##
-## 与主角的接口（飞怪也用同名方法实现，主角不需要知道具体类型）：
+## 与主角的接口（飞怪/偏旁怪用同名方法实现，主角不需要知道具体类型）：
 ##   try_contact_damage(player)  —— 侧面撞到主角，按内置冷却扣血
-##   on_stomped(player)          —— 被主角从上方踩到
 ##   hit(damage, knockback)      —— 被投射物打中
+##   rideable                    —— 站到它头上时是"骑着走"还是照常触发接触效果
 ##
-## 子类只需要覆写 _build() 和 ai(delta)。
+## ★ 站到怪头上不会杀死它：主角会被带着走（在 Player._apply_ride 里处理）。
+##   所以每个敌人都要记录自己这一帧的位移 move_delta。
 
 var b: BalanceData
 var hp: float = 2.0
@@ -16,11 +17,15 @@ var contact_damage: float = 1.0
 var coin_min: int = 1
 var coin_max: int = 3
 var gravity_scale: float = 1.0
+var rideable := true
+var move_delta := Vector2.ZERO
 
 var _dead := false
 var _flash := 0.0
 var _contact_cd := 0.0
 var _half := 18.0
+var _prev_pos := Vector2.ZERO
+var _art: Texture2D
 
 
 func setup(balance: BalanceData, hp_mul: float = 1.0) -> void:
@@ -41,15 +46,20 @@ func _ready() -> void:
 	rs.size = Vector2(_half * 2.0, _half * 2.0)
 	cs.shape = rs
 	add_child(cs)
+	_art = Assets.get_art(art_name())
+	_prev_pos = global_position
 	_build()
 
 
-## 子类覆写：加自己的视觉 / 额外节点
+## 子类覆写：美术文件名（assets/art/<name>.png）
+func art_name() -> String:
+	return "enemy_block"
+
+
 func _build() -> void:
 	pass
 
 
-## 子类覆写：设置 velocity
 func ai(_delta: float) -> void:
 	pass
 
@@ -63,8 +73,10 @@ func _physics_process(delta: float) -> void:
 	_contact_cd = maxf(_contact_cd - delta, 0.0)
 	if not is_on_floor():
 		velocity.y = minf(velocity.y + b.gravity * gravity_scale * delta, b.max_fall_speed)
+	_prev_pos = global_position
 	ai(delta)
 	move_and_slide()
+	move_delta = global_position - _prev_pos
 	if _flash > 0.0:
 		queue_redraw()
 
@@ -74,15 +86,6 @@ func try_contact_damage(p: Player) -> void:
 		return
 	_contact_cd = b.enemy_contact_cooldown
 	p.take_damage(contact_damage, "enemy")
-
-
-## 被踩头：默认直接死掉，主角弹起
-func on_stomped(p: Player) -> void:
-	if _dead:
-		return
-	Sfx.play("stomp")
-	p.bounce()
-	hit(max_hp + 1.0)
 
 
 func hit(damage: float, knockback: Vector2 = Vector2.ZERO) -> void:
@@ -106,15 +109,13 @@ func _die() -> void:
 	queue_free()
 
 
-## 告诉世界：这一格的东西已经被消耗掉了，别在原地重生一个
 func _mark_consumed() -> void:
 	var w := get_parent()
 	if w != null and w.has_method("consume_cell"):
 		w.consume_cell(self)
 
 
-## 注意：死亡常常发生在碰撞回调里，此时不能直接往场景树加带碰撞体的节点，
-## 所以交给父节点延迟一帧再加。
+## 死亡常常发生在碰撞回调里，此时不能直接往场景树加带碰撞体的节点 → 延迟一帧
 func _drop_coins() -> void:
 	var parent := get_parent()
 	if parent == null or not is_instance_valid(parent):
@@ -131,3 +132,13 @@ func sprite_color() -> Color:
 	if _flash > 0.0:
 		return Color.WHITE
 	return Assets.cfg.color_enemy
+
+
+## 有美术图就画图，返回 true 表示已经画完了
+func draw_art_if_any() -> bool:
+	if _art == null:
+		return false
+	var sz := _art.get_size()
+	draw_texture_rect(_art, Rect2(-sz * 0.5, sz), false,
+		Color(1, 1, 1, 1) if _flash <= 0.0 else Color(2, 2, 2, 1))
+	return true

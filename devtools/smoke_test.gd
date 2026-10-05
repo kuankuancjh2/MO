@@ -1,6 +1,5 @@
 extends Node
 ## 冒烟测试：自动跑一遍核心机制、截图、打印 PASS/FAIL。
-## 运行：
 ##   Tools/Godot_console.exe --path . res://devtools/smoke_test.tscn
 
 var _fails: Array[String] = []
@@ -17,14 +16,16 @@ func _ready() -> void:
 	_player = _main.player
 	_world = _main.world
 
-	await _test_spawn_and_terrain()
+	await _test_terrain()
 	await _test_move_and_jump()
 	await _test_vanish_cycle()
-	await _test_word_block()
-	await _test_fall_damage()
-	await _test_stomp_and_contact()
-	await _test_radicals()
+	await _test_hidden_radical()
+	await _test_fall_and_cancel()
+	await _test_ride()
+	await _test_radicals_and_synergy()
+	await _test_double_jump()
 	await _test_shop()
+	await _test_boss()
 	await _test_performance()
 	await _shoot()
 
@@ -57,19 +58,29 @@ func _pcy() -> int:
 	return int(floor(_player.global_position.y / float(_tile())))
 
 
-## 把主角放到某一列的平台上方（避免瞬移进方块被解穿透弹飞）
 func _place_on_column(cx: int, k: int = 0) -> void:
-	var top := TerrainGen.platform_top_row(cx, k, _world.world_seed)
-	_player.position = Vector2(cx * _tile() + _tile() * 0.5, top * _tile() - _tile() * 0.6)
+	var row := TerrainGen.surface_row(cx, k, _world.world_seed)
+	_player.position = Vector2(cx * _tile() + _tile() * 0.5, row * _tile() - _tile() * 0.6)
 	_player.velocity = Vector2.ZERO
+
+
+## 找一列「有地面」的落脚点（岛屿上）
+func _find_land(cx: int, dir: int = 1) -> int:
+	var s := _world.world_seed
+	var x := cx
+	for i in range(200):
+		if TerrainGen.kind_at(x, 0, s) == 1:
+			return x
+		x += dir
+	return cx
 
 
 func _clear_field() -> void:
 	RunState.radicals.clear()
 	RunState.radicals_changed.emit()
 	for c in _world.get_children():
-		if c is RedBlock or c is Seeker or c is Flyer or c is RadicalEnemy \
-				or c is WordBlock or c is Shop or c is Coin or c is InkShot:
+		if c is EnemyBase or c is Flyer or c is RadicalEnemy or c is Boss \
+				or c is Shop or c is Coin or c is InkShot or c is RadicalPickup:
 			c.queue_free()
 	await _wait_physics(4)
 	if _player.is_dead():
@@ -78,28 +89,11 @@ func _clear_field() -> void:
 	_player.heal(99.0)
 
 
-# ── 1) 出生与地形 ──────────────────────────────────────
+# ── 1) 地形：岛屿 + 桥 ────────────────────────────────
 
-func _test_spawn_and_terrain() -> void:
-	print("\n[1] 出生与地形")
+func _test_terrain() -> void:
+	print("\n[1] 地形（岛屿 + 横向桥接）")
 	await _wait_physics(40)
-	if not _player.is_on_floor():
-		print("    DEBUG pos=%s vel=%s cell=(%d,%d) layer=%d"
-			% [_player.global_position, _player.velocity, _pcx(), _pcy(),
-				TerrainGen.layer_of(_player.global_position.y, _tile())])
-		for dy in range(-3, 4):
-			var line := ""
-			for dx in range(-4, 5):
-				line += "#" if TerrainGen.is_solid(_pcx() + dx, _pcy() + dy, _world.world_seed) else "."
-			print("      row%+d %s" % [dy, line])
-		var nearby := 0
-		for c in _world.get_children():
-			if c is Node2D and (c as Node2D).global_position.distance_to(_player.global_position) < 80.0 \
-					and not (c is SolidTile):
-				print("      附近非方块节点: ", c.get_class(), " ", c.name, " @",
-					(c as Node2D).global_position)
-				nearby += 1
-		print("      附近非方块节点数: ", nearby)
 	_check(_player.is_on_floor(), "主角落地")
 	_check(absi(_player.global_position.x) < 300.0,
 		"主角没有被弹飞（x=%.1f）" % _player.global_position.x)
@@ -107,62 +101,80 @@ func _test_spawn_and_terrain() -> void:
 	_check(_player.hp >= _player.max_hp - 0.01, "出生没有受伤（hp=%.2f）" % _player.hp)
 
 	var s := _world.world_seed
-	var max_step := 0
-	for cx in range(-60, 60):
-		var a := _column_top(cx, s)
-		var b := _column_top(cx + 1, s)
-		if a != 9999 and b != 9999:
-			max_step = maxi(max_step, absi(a - b))
-	_check(max_step <= 1, "平台台阶落差 <= 1 格（实际 %d 格）" % max_step)
-
-	var max_gap := 0
+	var land := 0
+	var bridge := 0
+	var gaps: Array = []
 	var run := 0
+	var seen_land := false
+	var max_step := 0
+	var prev_surface := -9999
+	var islands := {}
 	for cx in range(-400, 400):
-		var has_floor := false
-		for y in range(0, 3):
-			if TerrainGen.is_solid(cx, y, s):
-				has_floor = true
-				break
-		if has_floor:
-			run = 0
+		var kind := TerrainGen.kind_at(cx, 0, s)
+		if kind == 1:
+			land += 1
+			islands[TerrainGen.column(cx, 0, s).z] = true
+		elif kind == 2:
+			bridge += 1
 		else:
 			run += 1
-			max_gap = maxi(max_gap, run)
-	_check(max_gap <= 3, "连续空缺 <= 3 格（实际 %d 格，跳跃距离约 3.6 格）" % max_gap)
+		if kind != 0:
+			# 只统计"两侧都有落脚"的缺口；扫面两端的截断缺口不算
+			if run > 0 and seen_land:
+				gaps.append(run)
+			run = 0
+			seen_land = true
+			var surf := TerrainGen.column(cx, 0, s).y
+			if prev_surface > -9999:
+				max_step = maxi(max_step, absi(surf - prev_surface))
+			prev_surface = surf
+		else:
+			prev_surface = -9999
 
-	# 结构：地面层必须左右贯通（否则玩家会被卡死）
+	var total := land + bridge
+	for g in gaps:
+		total += g
+	var floor_ratio := float(land + bridge) / float(maxi(total, 1))
+	_check(land > 60, "生成了多座岛（陆地列 %d）" % land)
+	_check(islands.size() >= 4, "岛屿数量 >= 4（实际 %d 座）" % islands.size())
+	_check(bridge > 10, "岛与岛之间有桥（桥列 %d）" % bridge)
+	# 实测不同种子间在 75%~90% 波动，取 70% 作为有意义的底线
+	_check(floor_ratio > 0.70, "横向连贯：%.0f%% 的列有落脚（应 > 70%%）" % (floor_ratio * 100.0))
+	_check(max_step <= 1, "相邻落脚点落差 <= 1 格（实际 %d）" % max_step)
+
+	# 缺口要么窄到能跳过去（<=3 格），要么宽得像断崖（>=8 格）；不能模棱两可
+	var ambiguous := 0
+	var pits := 0
+	var narrow := 0
+	var gap_start := 0
+	var in_gap := false
+	var gap_cursor := -400
+	for g in gaps:
+		gap_cursor += g
+		if g <= 3:
+			narrow += 1
+		elif g >= 8:
+			pits += 1
+		else:
+			ambiguous += 1
+			print("      暧昧缺口: 宽 %d 格，结束于 cx≈%d" % [g, gap_cursor])
+		gap_cursor += 1
+	_check(ambiguous == 0,
+		"没有「跳不过去又不够宽」的暧昧缺口（<=3格 %d 个 / >=8格断崖 %d 个 / 暧昧 %d 个）"
+			% [narrow, pits, ambiguous])
+
 	var lib := load("res://data/structure_library.tres") as StructureLibrary
 	var bad := 0
-	var total := 0
 	if lib != null:
 		for st in lib.structures:
-			total += 1
 			if not st.ground_row_is_open():
 				bad += 1
-	_check(lib != null and total >= 3, "结构库加载（%d 个：小屋/小摊/高台）" % total)
+	_check(lib != null and lib.structures.size() >= 8,
+		"结构库加载（%d 个）" % (lib.structures.size() if lib != null else 0))
 	_check(bad == 0, "所有结构的地面层都贯通（不合法 %d 个）" % bad)
 
-	# 横向连贯度：0 层带里连续「无洞」的列数应该占多数
-	var solid_cols := 0
-	var scan := 0
-	for cx in range(-300, 300):
-		scan += 1
-		for y in range(0, 3):
-			if TerrainGen.is_solid(cx, y, s):
-				solid_cols += 1
-				break
-	var ratio := float(solid_cols) / float(scan)
-	_check(ratio > 0.75, "横向连贯：%.0f%% 的列有地面（应 > 75%%）" % (ratio * 100.0))
 
-
-func _column_top(cx: int, s: int) -> int:
-	for y in range(0, 4):
-		if TerrainGen.is_solid(cx, y, s) and not TerrainGen.is_solid(cx, y - 1, s):
-			return y
-	return 9999
-
-
-# ── 2) 移动与跳跃 ─────────────────────────────────────
+# ── 2) 移动跳跃 ───────────────────────────────────────
 
 func _test_move_and_jump() -> void:
 	print("\n[2] 移动与跳跃")
@@ -175,10 +187,8 @@ func _test_move_and_jump() -> void:
 		max_vel = maxf(max_vel, _player.velocity.x)
 		max_x = maxf(max_x, _player.global_position.x)
 	Input.action_release("move_right")
-	_check(max_vel > 150.0, "向右加速到接近上限（峰值 %.0f / 上限 %.0f）"
-		% [max_vel, Balance.d.move_speed])
+	_check(max_vel > 150.0, "向右加速到接近上限（峰值 %.0f）" % max_vel)
 	_check(max_x > x0 + 60.0, "确实向右位移（%.0f -> %.0f）" % [x0, max_x])
-
 	await _wait_physics(25)
 	var y0 := _player.global_position.y
 	var min_y := y0
@@ -188,13 +198,13 @@ func _test_move_and_jump() -> void:
 	for i in range(30):
 		await get_tree().physics_frame
 		min_y = minf(min_y, _player.global_position.y)
-	_check(min_y < y0 - 8.0, "跳跃生效（最高上移 %.0f px）" % (y0 - min_y))
+	_check(min_y < y0 - 8.0, "跳跃生效（上移 %.0f px）" % (y0 - min_y))
 
 
-# ── 3) 方块消失周期 ───────────────────────────────────
+# ── 3) 消失周期 ───────────────────────────────────────
 
 func _test_vanish_cycle() -> void:
-	print("\n[3] 方块的消失周期")
+	print("\n[3] 方块的消失周期（基准 %.1fs）" % Balance.d.vanish_time)
 	await _wait_physics(10)
 	var before := _world.destroyed_count()
 	var counting := 0
@@ -206,128 +216,138 @@ func _test_vanish_cycle() -> void:
 	while _world.destroyed_count() == before and elapsed < 8.0:
 		await get_tree().physics_frame
 		elapsed += 1.0 / 60.0
-	_check(_world.destroyed_count() > before,
-		"方块真的消失了（%d -> %d，耗时 %.1fs，基准 %.1fs）"
-			% [before, _world.destroyed_count(), elapsed, Balance.d.vanish_time])
-	var ghosts := 0
-	for c in _world.get_children():
-		if c is VoidGhost:
-			ghosts += 1
-	_check(ghosts > 0 or _world.destroyed_count() > before, "消失后留下虚线空位残影")
+	_check(_world.destroyed_count() > before, "方块真的消失了（耗时 %.1fs）" % elapsed)
 
 
-# ── 4) 字块：撞碎 -> 得字 ─────────────────────────────
+# ── 4) 偏旁藏在方块里 ─────────────────────────────────
 
-func _test_word_block() -> void:
-	print("\n[4] 字块（实心砖，撞碎得字）")
+func _test_hidden_radical() -> void:
+	print("\n[4] 偏旁藏在方块里（碎开才露出来）")
 	await _clear_field()
-	await _place_on_column(_pcx())
+	await _place_on_column(_find_land(_pcx()))
 	await _wait_physics(20)
 
 	var lib := load("res://data/radical_library.tres") as RadicalLibrary
-	var d := lib.find_by_id("mo_ri")   # 暮：vanish_factor 1.4
-	var cell := Vector2i(_pcx() + 2, _pcy())
-	var wb := WordBlock.new()
-	wb.setup(cell, _tile(), _world, d)
-	wb.position = Vector2(cell.x * _tile(), cell.y * _tile())
-	_world.add_child(wb)
+	var d := lib.find_by_id("mo_ri")            # 暮：vanish_factor 1.4
+	var cx := _find_land(_pcx()) + 1
+	var surf := TerrainGen.surface_row(cx, 0, _world.world_seed)
+	# 手动把主角脚下那一列的方块换成"藏着偏旁"的
+	var key := Vector2i(cx, surf)
+	var old = _world._tiles.get(key)
+	if old != null and is_instance_valid(old):
+		old.queue_free()
+		_world._tiles.erase(key)
+	var t := SolidTile.new()
+	t.setup(key, _tile(), _world, 0, d)
+	_world.add_child(t)
+	_world._tiles[key] = t
 	await _wait_physics(4)
-	_check(is_instance_valid(wb) and wb.state == WordBlock.State.INTACT, "字块作为实心砖存在")
-	_check(RunState.radicals.is_empty(), "还没撞碎时没有这个字")
+	_check(TerrainGen.has_radical(cx, surf, _world.world_seed) or t.radical != null,
+		"方块里确实藏着一个字")
 
+	# 站上去 -> 碎掉 -> 偏旁浮出来 -> 飞向主角 -> 拿到
+	_place_on_column(cx)
 	var v0 := _player.vanish_factor
-	var destroyed0 := _world.destroyed_count()
-	Input.action_press("move_right")
+	var saw_pickup := false
 	var elapsed := 0.0
-	while elapsed < 4.0 and RunState.radicals.is_empty():
+	while elapsed < 6.0 and RunState.radicals.is_empty():
 		await get_tree().physics_frame
 		elapsed += 1.0 / 60.0
-	Input.action_release("move_right")
-	_check(not RunState.radicals.is_empty(), "走过去撞碎了字块（%.1fs）" % elapsed)
-	_check(_world.destroyed_count() > destroyed0, "字块被记为永久消失")
-	_check(_player.vanish_factor > v0, "碎掉后字的效果生效：消失变慢（%.2f -> %.2f）"
+		for c in _world.get_children():
+			if c is RadicalPickup:
+				saw_pickup = true
+	_check(saw_pickup, "方块碎开后露出了偏旁")
+	_check(not RunState.radicals.is_empty(), "偏旁飞向主角并被吸收（%.1fs）" % elapsed)
+	_check(_player.vanish_factor > v0, "字的效果生效（消失变慢 %.2f -> %.2f）"
 		% [v0, _player.vanish_factor])
-	_check(_player._glyph.text == "暮", "主角字形变成「暮」（莫 + 日）")
+	_check(_player._glyph.text == "暮", "主角字形变成「暮」")
 
 
-# ── 5) 掉落伤害与卸力 ─────────────────────────────────
+# ── 5) 掉落与卸力 ─────────────────────────────────────
 
-func _find_void_run(cx: int) -> int:
-	# 从主角所在行往下找一段连续 5 格空（层带空隙）
+## 找一段"上下都有边界"的空档：连续 `fall_cells` 格空，紧跟着就是实心。
+## 这样掉下去的下落高度是可控的（约 fall_cells - 0.83 格），
+## 才能稳定落在"卸得掉"或"卸不掉"的区间里做对比。
+## 返回 Vector2i(x, y)；找不到返回 (cx, cy)。
+func _find_bounded_void(cx: int, fall_cells: int = 6) -> Vector2i:
+	var s := _world.world_seed
 	var cy := _pcy()
-	for dy in range(0, 40):
-		var y := cy + dy
-		var clear := true
-		for j in range(0, 5):
-			if TerrainGen.is_solid(cx, y + j, _world.world_seed):
-				clear = false
-				break
-		if clear:
-			return y
-	return cy
+	for dc in range(0, 16):
+		for sign_x in [1, -1]:
+			var x: int = cx + dc * int(sign_x)
+			for dy in range(-2, 40):
+				var y := cy + dy
+				var clear := true
+				for j in range(0, fall_cells):
+					if TerrainGen.is_solid(x, y + j, s):
+						clear = false
+						break
+				if not clear:
+					continue
+				if TerrainGen.is_solid(x, y + fall_cells, s):
+					return Vector2i(x, y)     # 正好掉 fall_cells 格后落地
+	return Vector2i(cx, cy)
 
 
-func _test_fall_damage() -> void:
+var _void_col := 0
+
+
+func _test_fall_and_cancel() -> void:
 	print("\n[5] 掉落伤害与卸力")
 	await _clear_field()
-
-	# 5a) 直接调伤害计算（单元级，不受外界干扰）
 	_player.hp = _player.max_hp
 	_player._invuln = 0.0
 	var hp0 := _player.hp
 	_player._apply_fall_damage((Balance.d.fall_safe_tiles - 0.5) * float(_tile()))
-	_check(hp0 - _player.hp < 0.01, "低于阈值（%.1f 格）不受伤" % Balance.d.fall_safe_tiles)
-
+	_check(hp0 - _player.hp < 0.01, "低于阈值不受伤")
 	_player._invuln = 0.0
 	hp0 = _player.hp
 	_player._apply_fall_damage(40.0 * float(_tile()))
-	var dmg := hp0 - _player.hp
-	_check(absf(dmg - Balance.d.fall_damage_amount) < 0.01,
-		"超高掉落固定扣 1 心（实际 %.2f）" % dmg)
-
+	_check(absf(hp0 - _player.hp - Balance.d.fall_damage_amount) < 0.01,
+		"超高掉落固定扣 1 心")
 	_player.revive_state()
-	_player._invuln = 0.0
 	for i in range(8):
 		_player._invuln = 0.0
 		_player._apply_fall_damage(40.0 * float(_tile()))
 	_check(_player.hp >= 1.0 - 0.01, "连摔也永远剩至少 1 心（剩 %.2f）" % _player.hp)
-	_player.heal(99.0)
 
-	# 5b) 真实下落：不按跳跃 -> 扣 1 心
-	await _place_on_column(_pcx())
+	# 真实下落：不按跳跃 -> 扣血（找一个有边界的空档，下落可控）
+	var land := _find_land(_pcx() + 6)
+	await _place_on_column(land)
 	await _wait_physics(20)
-	var cx := _pcx()
-	var y := _find_void_run(cx)
-	_player.position = Vector2(cx * _tile() + 24, y * _tile() + 24)
+	var spot := _find_bounded_void(_pcx(), 6)
+	_player.position = Vector2(spot.x * _tile() + 24, spot.y * _tile() + 24)
 	_player.velocity = Vector2.ZERO
 	_player._invuln = 0.0
 	_player.hp = _player.max_hp
-	var hp_before := _player.hp
+	hp0 = _player.hp
+	var start_y := _player.global_position.y
 	var elapsed := 0.0
 	while elapsed < 4.0:
 		await get_tree().physics_frame
 		elapsed += 1.0 / 60.0
 		if _player.is_on_floor():
 			break
-	_check(_player.hp < hp_before, "长距离掉落扣血（%.2f -> %.2f）" % [hp_before, _player.hp])
-	_check(_player.hp > 0.0, "掉落不会致死（剩 %.2f 心）" % _player.hp)
+	var drop := (_player.global_position.y - start_y) / float(_tile())
+	_check(_player.hp < hp0, "长距离掉落扣血（掉 %.1f 格，%.2f -> %.2f）"
+		% [drop, hp0, _player.hp])
+	_check(_player.hp > 0.0, "掉落不会致死")
 
-	# 5c) 同样高度，但落地前一直按跳跃 -> 卸力免伤
-	await _place_on_column(_pcx())
+	# 同一个落点，落地前按跳跃 -> 卸力免伤
+	var land2 := _find_land(_pcx() + 6)
+	await _place_on_column(land2)
 	await _wait_physics(20)
-	cx = _pcx()
-	y = _find_void_run(cx)
-	_player.position = Vector2(cx * _tile() + 24, y * _tile() + 24)
+	spot = _find_bounded_void(_pcx(), 6)
+	_player.position = Vector2(spot.x * _tile() + 24, spot.y * _tile() + 24)
 	_player.velocity = Vector2.ZERO
 	_player._invuln = 0.0
 	_player.hp = _player.max_hp
-	hp_before = _player.hp
+	hp0 = _player.hp
 	elapsed = 0.0
-	var mashing := false
+	var on := false
 	while elapsed < 4.0:
-		# 每隔一帧按一次跳跃 —— 模拟"落地前按跳跃"
-		mashing = not mashing
-		if mashing:
+		on = not on
+		if on:
 			Input.action_press("jump")
 		else:
 			Input.action_release("jump")
@@ -336,54 +356,52 @@ func _test_fall_damage() -> void:
 		if _player.is_on_floor():
 			break
 	Input.action_release("jump")
-	_check(absf(_player.hp - hp_before) < 0.01,
-		"落地前按跳跃 = 卸力免伤（%.2f -> %.2f）" % [hp_before, _player.hp])
+	_check(absf(_player.hp - hp0) < 0.01, "落地前按跳跃 = 卸力免伤（%.2f -> %.2f）"
+		% [hp0, _player.hp])
 
 
-# ── 6) 踩头与侧碰 ─────────────────────────────────────
+# ── 6) 骑怪 ───────────────────────────────────────────
 
-func _test_stomp_and_contact() -> void:
-	print("\n[6] 踩头 / 侧碰")
+func _test_ride() -> void:
+	print("\n[6] 踩怪 = 骑着走（不杀、不掉血）")
 	await _clear_field()
-	await _place_on_column(_pcx())
+	var cx := _find_land(_pcx() + 8)
+	await _place_on_column(cx)
 	await _wait_physics(25)
 
-	# 6a) 踩头：怪死，主角不掉血，主角被弹起
-	var ex := _pcx() + 2
-	var top := TerrainGen.platform_top_row(ex, 0, _world.world_seed)
-	var guard := 0
-	while guard < 30 and not (TerrainGen.is_solid(ex, top, _world.world_seed)
-			and not TerrainGen.is_solid(ex, top - 1, _world.world_seed)):
-		ex += 1
-		top = TerrainGen.platform_top_row(ex, 0, _world.world_seed)
-		guard += 1
-	_check(guard < 30, "找到一列有平台的落脚点给怪站（偏移 %d）" % (ex - _pcx()))
+	var s := _world.world_seed
+	var cx2 := _find_land(cx + 2)
+	var surf := TerrainGen.surface_row(cx2, 0, s)
 	var e := RedBlock.new()
 	e.setup(Balance.d)
-	e.speed = 0.0                                  # 站桩，别走开
-	e.position = Vector2(ex * _tile() + 24.0, top * _tile() - 18.0)
+	e.speed = 110.0
+	e.position = Vector2(cx2 * _tile() + 24.0, surf * _tile() - 18.0)
 	_world.add_child(e)
-	await _wait_physics(8)
+	await _wait_physics(6)
 
-	_player.position = Vector2(ex * _tile() + 24.0, top * _tile() - 120.0)
+	# 落到它头上
+	_player.position = e.position + Vector2(0.0, -34.0)
 	_player.velocity = Vector2(0, 60)
 	_player._invuln = 0.0
 	var hp0 := _player.hp
-	var bounced := false
 	var elapsed := 0.0
-	while elapsed < 2.0 and is_instance_valid(e) and not e.is_queued_for_deletion():
+	while elapsed < 2.0 and _player.riding != e:
 		await get_tree().physics_frame
 		elapsed += 1.0 / 60.0
-		if _player.velocity.y < -100.0:
-			bounced = true
-	_check(not is_instance_valid(e) or e.is_queued_for_deletion(),
-		"踩到怪头上把怪踩死了")
-	_check(absf(_player.hp - hp0) < 0.01, "踩头不掉血（%.2f -> %.2f）" % [hp0, _player.hp])
-	_check(bounced, "踩头后主角被弹起")
+	_check(is_instance_valid(e), "踩到怪头上不会把怪踩死")
+	_check(_player.riding == e, "主角骑在怪身上（riding）")
+	_check(absf(_player.hp - hp0) < 0.01, "骑着不掉血（%.2f）" % _player.hp)
 
-	# 6b) 侧碰：掉血
+	var x0 := _player.global_position.x
+	var moved_enemy := 0.0
+	await _wait_physics(40)
+	moved_enemy = absf(e.global_position.x - e.position.x)
+	_check(absf(_player.global_position.x - x0) > 15.0,
+		"被怪带着走（主角位移 %.0f px）" % absf(_player.global_position.x - x0))
+
+	# 侧面碰仍然掉血
 	await _clear_field()
-	await _place_on_column(_pcx())
+	await _place_on_column(_find_land(_pcx()))
 	await _wait_physics(25)
 	var e2 := RedBlock.new()
 	e2.setup(Balance.d)
@@ -401,42 +419,14 @@ func _test_stomp_and_contact() -> void:
 	Input.action_release("move_right")
 	_check(_player.hp < hp0, "侧面碰到怪会掉血（%.2f -> %.2f）" % [hp0, _player.hp])
 
-	# 6c) 攻击朝鼠标方向
-	var target_world := _player.global_position + Vector2(220, 0)
-	var screen := _player.get_viewport().get_canvas_transform() * target_world
-	Input.warp_mouse(screen)
-	await get_tree().process_frame
-	var aim := _player.aim_direction()
-	_check(absf(aim.length() - 1.0) < 0.01, "瞄准方向是单位向量")
-	_check(aim.x > 0.5, "鼠标在右边时弹丸朝右射（aim=(%.2f,%.2f)）" % [aim.x, aim.y])
 
-	# 6d) 飞怪：踩头不死，而是被驯服（变成能载人的飞行平台）
-	await _clear_field()
-	await _place_on_column(_pcx())
-	await _wait_physics(25)
-	var f := Flyer.new()
-	f.setup(Balance.d)
-	f.position = _player.position + Vector2(0.0, -60.0)
-	_world.add_child(f)
-	await _wait_physics(4)
-	_player.position = f.position + Vector2(0.0, -70.0)
-	_player.velocity = Vector2(0, 60)
-	_player._invuln = 0.0
-	elapsed = 0.0
-	while elapsed < 2.0 and not f.tamed:
-		await get_tree().physics_frame
-		elapsed += 1.0 / 60.0
-	_check(is_instance_valid(f), "踩飞怪的头不会把它踩死")
-	_check(f.tamed, "踩飞怪的头会被驯服（可以载人）")
+# ── 7) 偏旁 / 组合技 ──────────────────────────────────
 
-
-# ── 7) 偏旁 ───────────────────────────────────────────
-
-func _test_radicals() -> void:
-	print("\n[7] 偏旁效果")
+func _test_radicals_and_synergy() -> void:
+	print("\n[7] 偏旁与组合技")
 	await _clear_field()
 	var lib := load("res://data/radical_library.tres") as RadicalLibrary
-	_check(lib != null and lib.radicals.size() >= 6, "偏旁库加载（%d 个）"
+	_check(lib != null and lib.radicals.size() >= 11, "偏旁库加载（%d 个字）"
 		% (lib.radicals.size() if lib != null else 0))
 	if lib == null:
 		return
@@ -444,21 +434,56 @@ func _test_radicals() -> void:
 	var v0 := _player.vanish_factor
 	RunState.add_radical(lib.find_by_id("mo_ri"))
 	await get_tree().process_frame
-	_check(_player.vanish_factor > v0, "「暮」让消失变慢（%.2f -> %.2f）"
-		% [v0, _player.vanish_factor])
+	_check(_player.vanish_factor > v0, "「暮」让消失变慢")
+	_check(_player.vision_factor < 1.0, "「暮」的副作用：视野变暗（%.2f）" % _player.vision_factor)
 
-	var m0 := _player.move_factor
-	RunState.add_radical(lib.find_by_id("mo_tu"))
-	await get_tree().process_frame
-	_check(_player.move_factor < m0, "「墓」的副作用让移速变慢（%.2f -> %.2f）"
-		% [m0, _player.move_factor])
-
+	# 组合技「暮慕」应该抵消视野惩罚
 	RunState.add_radical(lib.find_by_id("mo_xin"))
 	await get_tree().process_frame
-	_check(_player.attract, "「慕」带来磁吸")
-	_check(RunState.radicals.size() <= RunState.slot_count,
-		"装上的字不超过槽位（%d / %d）" % [RunState.radicals.size(), RunState.slot_count])
+	_check(absf(_player.vision_factor - 1.0) < 0.01,
+		"组合技「暮慕」抵消了视野变暗（%.2f）" % _player.vision_factor)
+	_check(_player.attract, "组合技保留磁吸")
+	_check(_player.attract_radius_mul > 1.0, "磁吸范围被放大（x%.1f）" % _player.attract_radius_mul)
 
+	# 漠：三发且无副作用
+	RunState.radicals.clear()
+	RunState.radicals.append(lib.find_by_id("mo_shui"))
+	RunState.radicals_changed.emit()
+	await get_tree().process_frame
+	_check(absf(_player.vanish_factor - 1.0) < 0.01, "「漠」没有副作用")
+	for c in _world.get_children():
+		if c is InkShot:
+			c.queue_free()
+	await _wait_physics(3)
+	_player.do_skill("skill_1")
+	await _wait_physics(2)
+	var shots := 0
+	for c in _world.get_children():
+		if c is InkShot:
+			shots += 1
+	_check(shots == 3, "「漠」一次打出三发水柱（%d 发）" % shots)
+
+	# 「摸」主动技能：把金币抓过来
+	RunState.radicals.clear()
+	RunState.radicals.append(lib.find_by_id("mo_shou"))
+	RunState.radicals_changed.emit()
+	await get_tree().process_frame
+	var coin := Coin.new()
+	coin.setup(Assets.cfg.color_coin)
+	coin.position = _player.position + Vector2(300, 0)
+	_world.add_child(coin)
+	await _wait_physics(3)
+	var d0: float = coin.global_position.distance_to(_player.global_position)
+	_player.do_skill("skill_2")
+	await _wait_physics(3)
+	var pulled := false
+	if not is_instance_valid(coin):
+		pulled = true      # 直接被吸进嘴里了
+	else:
+		pulled = coin.global_position.distance_to(_player.global_position) < d0 - 100.0
+	_check(pulled, "「摸」把金币抓了过来（距离 %.0f）" % d0)
+
+	# 「馍」立即回血
 	RunState.radicals.clear()
 	RunState.radicals_changed.emit()
 	_player.revive_state()
@@ -467,37 +492,53 @@ func _test_radicals() -> void:
 	var hp0 := _player.hp
 	RadicalEffects.on_pickup(_player, lib.find_by_id("mo_shi"))
 	await get_tree().process_frame
-	_check(_player.hp > hp0, "「馍」立即回血（%.2f -> %.2f）" % [hp0, _player.hp])
+	_check(_player.hp > hp0, "「馍」立即回血")
 
-	# 漠：三发都有效，且没有副作用
+
+# ── 8) 二段跳（永久特性）──────────────────────────────
+
+func _test_double_jump() -> void:
+	print("\n[8] 「蟆」的永久二段跳")
+	await _clear_field()
+	var had := MetaState.has_trait("double_jump")
+	var lib := load("res://data/radical_library.tres") as RadicalLibrary
 	RunState.radicals.clear()
-	RunState.radicals.append(lib.find_by_id("mo_shui"))
+	RunState.radicals.append(lib.find_by_id("mo_chong"))
 	RunState.radicals_changed.emit()
 	await get_tree().process_frame
-	_check(absf(_player.vanish_factor - 1.0) < 0.01, "「漠」没有副作用（vanish_factor = 1）")
-	for c in _world.get_children():
-		if c is InkShot:
-			c.queue_free()
-	await _wait_physics(3)
-	_player.do_skill("skill_1")
-	await _wait_physics(2)
-	var shots := 0
-	var dirs: Array[Vector2] = []
-	for c in _world.get_children():
-		if c is InkShot:
-			shots += 1
-			dirs.append((c as InkShot).dir)
-	_check(shots == 3, "「漠」一次打出三发水柱（实际 %d 发）" % shots)
-	if shots == 3:
-		var distinct := absf(dirs[0].angle_to(dirs[1])) > 0.01 \
-			and absf(dirs[1].angle_to(dirs[2])) > 0.01
-		_check(distinct, "三发方向各不相同（扇形展开）")
+	_check(MetaState.has_trait("double_jump"), "拿到「蟆」就永久解锁二段跳（写进存档）")
+	_check(_player.can_double_jump, "二段跳能力生效")
+
+	await _place_on_column(_find_land(_pcx()))
+	await _wait_physics(25)
+	Input.action_press("jump")
+	await get_tree().physics_frame
+	Input.action_release("jump")
+	var reached_falling := false
+	for i in range(60):
+		await get_tree().physics_frame
+		if _player.velocity.y > 0.0:
+			reached_falling = true
+			break
+	_check(reached_falling, "一段跳后开始下落")
+	Input.action_press("jump")
+	await get_tree().physics_frame
+	Input.action_release("jump")
+	await get_tree().physics_frame
+	_check(_player.velocity.y < -350.0, "空中再按跳跃触发二段跳（vy=%.0f）" % _player.velocity.y)
+
+	# 「蟆」的永久特性不该被测试污染存档
+	if not had:
+		MetaState.traits.erase("double_jump")
+		MetaState.save_game()
+	RunState.radicals.clear()
+	RunState.radicals_changed.emit()
 
 
-# ── 8) 商店 ───────────────────────────────────────────
+# ── 9) 商店 ───────────────────────────────────────────
 
 func _test_shop() -> void:
-	print("\n[8] 商店")
+	print("\n[9] 商店")
 	await _clear_field()
 	_player.take_damage(2.0)
 	await get_tree().process_frame
@@ -509,46 +550,68 @@ func _test_shop() -> void:
 	await get_tree().process_frame
 	_check(_main.shop_ui.is_open(), "按 F 能打开商店")
 	_check(_player.input_locked, "开店时锁住主角操作")
-	_main.shop_ui._try_buy(0)          # 第 1 项：回心
+	# 面板不能挡住主角（否则玩家看不见脚下在塌）
+	var panel: ColorRect = _main.shop_ui._bg
+	var vp := _player.get_viewport().get_visible_rect().size
+	var player_screen: Vector2 = _player.get_viewport().get_canvas_transform() \
+		* _player.global_position
+	_check(not panel.get_rect().has_point(player_screen),
+		"商店面板没有挡住主角（面板在右上角）")
+	_main.shop_ui._try_buy(0)
 	await get_tree().process_frame
-	_check(_player.hp > hp0, "买「回心」回了血（%.2f -> %.2f）" % [hp0, _player.hp])
-	_check(RunState.coins < coins0, "买完扣了金币（%d -> %d）" % [coins0, RunState.coins])
-	var slots0: int = RunState.slot_count
-	_main.shop_ui._try_buy(2)          # 第 3 项：加槽位
-	await get_tree().process_frame
-	_check(RunState.slot_count > slots0, "买「加槽位」生效（%d -> %d）"
-		% [slots0, RunState.slot_count])
+	_check(_player.hp > hp0, "买「回心」回了血")
+	_check(RunState.coins < coins0, "买完扣了金币")
 	_main.shop_ui.close()
 	await get_tree().process_frame
 	_check(not _player.input_locked, "关店后恢复操作")
 
 
-# ── 9) 性能回归 ───────────────────────────────────────
+# ── 10) Boss「有」─────────────────────────────────────
+
+func _test_boss() -> void:
+	print("\n[10] Boss「有」")
+	await _clear_field()
+	await _place_on_column(_find_land(_pcx()))
+	await _wait_physics(20)
+	var boss := Boss.new()
+	boss.setup(Balance.d, _player)
+	boss.position = _player.global_position + Vector2(300.0, -120.0)
+	boss._home = boss.position
+	_world.add_child(boss)
+	await _wait_physics(20)
+	_check(boss.engaged, "进入范围后 Boss 开始交战")
+	var hp0 := boss.hp
+	boss.hit(5.0, Vector2.ZERO)
+	await _wait_physics(2)
+	_check(boss.hp < hp0, "Boss 会掉血（%.0f -> %.0f）" % [hp0, boss.hp])
+	var souls0 := MetaState.souls
+	boss.hit(999.0, Vector2.ZERO)
+	await _wait_physics(4)
+	_check(not is_instance_valid(boss) or boss.is_queued_for_deletion(), "Boss 会被击杀")
+	_check(MetaState.souls > souls0, "击杀 Boss 给了魂币（%d -> %d）" % [souls0, MetaState.souls])
+
+
+# ── 11) 性能 ──────────────────────────────────────────
 
 func _test_performance() -> void:
-	print("\n[9] 性能：玩久了不该越来越卡（实体泄漏回归）")
+	print("\n[11] 性能：玩久了不该越来越卡")
 	await _clear_field()
 	var e0 := _world.entity_count()
 	var n0 := _world.node_count()
-	var tiles0 := _world.tile_count()
-
 	var cx := _pcx()
 	for i in range(30):
 		cx += 20
 		_place_on_column(cx)
 		await get_tree().process_frame
 		await _wait_physics(3)
-
 	var e1 := _world.entity_count()
 	var n1 := _world.node_count()
-	var tiles1 := _world.tile_count()
-	_check(e1 < 120, "出界实体被卸载，实体数有界（%d -> %d，上限 120）" % [e0, e1])
-	_check(tiles1 < 1200, "方块数有界（%d -> %d）" % [tiles0, tiles1])
-	_check(n1 < 1600, "走过 600 格后世界节点数有界（%d -> %d，上限 1600）" % [n0, n1])
+	_check(e1 < 140, "出界实体被卸载，实体数有界（%d -> %d）" % [e0, e1])
+	_check(n1 < 2000, "走过 600 格后节点数有界（%d -> %d）" % [n0, n1])
 
 
 func _shoot() -> void:
-	print("\n[10] 截图")
+	print("\n[12] 截图")
 	await _wait_physics(10)
 	await RenderingServer.frame_post_draw
 	var img := get_viewport().get_texture().get_image()

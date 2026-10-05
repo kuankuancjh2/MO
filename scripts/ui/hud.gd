@@ -19,6 +19,9 @@ var _overlay: Label
 var _overlay_sub: Label
 var _toast_left := 0.0
 var _banner_left := 0.0
+var _boss_bg: ColorRect
+var _boss_fill: ColorRect
+var _boss_label: Label
 
 
 func setup(p: Player) -> void:
@@ -52,6 +55,22 @@ func setup(p: Player) -> void:
 	add_child(_slots_ui)
 	_slots_ui.setup(_player)
 
+	# Boss 血条（平时隐藏）
+	_boss_bg = ColorRect.new()
+	_boss_bg.color = Color(0.1, 0.05, 0.06, 0.9)
+	_boss_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_boss_bg)
+	_boss_fill = ColorRect.new()
+	_boss_fill.color = Color(1.0, 0.32, 0.32, 0.95)
+	_boss_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_boss_fill)
+	_boss_label = Assets.make_label("有", cfg.hud_font_size, Color(1.0, 0.5, 0.5))
+	_boss_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_boss_label)
+	_boss_bg.visible = false
+	_boss_fill.visible = false
+	_boss_label.visible = false
+
 	_player.hp_changed.connect(_on_hp_changed)
 	_player.layer_changed.connect(_on_layer_changed)
 	RunState.coins_changed.connect(_on_coins_changed)
@@ -60,7 +79,8 @@ func setup(p: Player) -> void:
 
 
 func _process(delta: float) -> void:
-	_layout(get_viewport().get_visible_rect().size)
+	var vp := get_viewport().get_visible_rect().size
+	_layout(vp)
 
 	var target := 0.0
 	if _player != null and is_instance_valid(_player):
@@ -73,6 +93,28 @@ func _process(delta: float) -> void:
 	_toast.modulate.a = clampf(_toast_left / 0.6, 0.0, 1.0)
 	_banner_left = maxf(_banner_left - delta, 0.0)
 	_banner_label.modulate.a = clampf(_banner_left / 0.5, 0.0, 1.0)
+
+	_update_boss_bar(vp)
+
+
+func _update_boss_bar(vp: Vector2) -> void:
+	var boss := get_tree().get_first_node_in_group("boss") as Node
+	var show := boss != null and is_instance_valid(boss) and bool(boss.get("engaged"))
+	_boss_bg.visible = show
+	_boss_fill.visible = show
+	_boss_label.visible = show
+	if not show:
+		return
+	var w := 360.0
+	var x := vp.x * 0.5 - w * 0.5
+	var y := 20.0
+	_boss_bg.position = Vector2(x - 2.0, y - 2.0)
+	_boss_bg.size = Vector2(w + 4.0, 18.0)
+	var hp := float(boss.get("hp"))
+	var mx := maxf(float(boss.get("max_hp")), 0.001)
+	_boss_fill.position = Vector2(x, y)
+	_boss_fill.size = Vector2(w * clampf(hp / mx, 0.0, 1.0), 14.0)
+	_boss_label.position = Vector2(x - 30.0, y - 6.0)
 
 
 func _layout(vp: Vector2) -> void:

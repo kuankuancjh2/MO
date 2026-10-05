@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="StructureData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/structure_data.gd" id="1_a4mdt"]
+
+[resource]
+script = ExtResource("1_a4mdt")
+id = "colonnade"
+display_name = "柱廊"
+grid = PackedStringArray("#..#..#..#..#", ".............")
+weight = 0.8
+tags = PackedStringArray("colonnade")
