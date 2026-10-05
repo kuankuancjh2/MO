@@ -22,6 +22,7 @@ Assets="*res://scripts/systems/assets.gd"
 Balance="*res://scripts/systems/balance.gd"
 RunState="*res://scripts/systems/run_state.gd"
 MetaState="*res://scripts/systems/meta_state.gd"
+Sfx="*res://scripts/systems/sfx.gd"
 
 [display]
 

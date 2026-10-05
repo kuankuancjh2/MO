@@ -11,12 +11,14 @@ func _initialize() -> void:
 	_gen_asset_config()
 	_gen_balance()
 	_gen_radical_library()
+	_gen_structure_library()
 	print("MO: 资源生成完毕。")
 	quit()
 
 
 func _ensure_dirs() -> void:
-	for d in ["res://assets/config", "res://data", "res://data/radicals"]:
+	for d in ["res://assets/config", "res://assets/audio", "res://data",
+			"res://data/radicals", "res://data/structures"]:
 		if not DirAccess.dir_exists_absolute(d):
 			DirAccess.make_dir_recursive_absolute(d)
 
@@ -63,7 +65,7 @@ func _gen_radical_library() -> void:
 			"拾取时立即回复 1 心", "无",
 			Color("#ffd9a0"), {"heal_on_pickup": 1.0}],
 		["mo_shui", "氵", "漠", "left", RadicalData.EffectType.ACTIVE, "流沙",
-			"按 Q 喷出水柱，伤害并击退前方敌人", "用完后 3 秒内你的地面消失加速",
+			"按 Q 喷出三发水柱，每一发都伤害并击退敌人", "无",
 			Color("#7fd8ff"), {"skill_action": "skill_1", "cooldown": 3.0}],
 		["mo_tu", "土", "墓", "bottom", RadicalData.EffectType.PASSIVE, "碑",
 			"你踩过的方块不再消失（化为碑）", "负重：移速 -15%",
@@ -97,4 +99,67 @@ func _gen_radical_library() -> void:
 		var reloaded: RadicalData = load(rpath)
 		arr.append(reloaded if reloaded != null else r)
 	lib.radicals = arr
+	_save(lib, path)
+
+
+## ── 结构（像 MC 那样的小建筑）────────────────────────────
+## 网格最后一行 = 玩家身体行（平台顶上面那一格），往上依次 -2 / -3 …
+## ⚠️ 最后一行必须左右贯通 —— 玩家只向右走，死路 = 卡死。
+## 生成器会自检 ground_row_is_open()，不合法的结构会被运行时跳过。
+func _gen_structure_library() -> void:
+	var path := "res://data/structure_library.tres"
+	if ResourceLoader.exists(path):
+		print("  = 已存在，跳过:", path)
+		return
+
+	var defs: Array = [
+		{
+			"id": "hut",
+			"name": "小屋",
+			"weight": 1.0,
+			"grid": PackedStringArray([
+				"....#....",
+				"..#####..",
+				".#######.",
+				"#..W.E..#",
+				".........",
+			]),
+		},
+		{
+			"id": "stall",
+			"name": "小摊",
+			"weight": 0.7,
+			"grid": PackedStringArray([
+				"..###..",
+				"#.....#",
+				"...S...",
+			]),
+		},
+		{
+			"id": "tower",
+			"name": "高台",
+			"weight": 1.0,
+			"grid": PackedStringArray([
+				"...W...",
+				"..####.",
+			]),
+		},
+	]
+
+	var lib := StructureLibrary.new()
+	var arr: Array[StructureData] = []
+	for d in defs:
+		var s := StructureData.new()
+		s.id = d["id"]
+		s.display_name = d["name"]
+		s.weight = d["weight"]
+		s.grid = d["grid"]
+		s.tags = PackedStringArray([d["id"]])
+		if not s.ground_row_is_open():
+			push_error("MO: 结构 %s 的地面层没有贯通，会导致玩家卡死。" % s.id)
+		var spath := "res://data/structures/%s.tres" % s.id
+		_save(s, spath)
+		var reloaded: StructureData = load(spath)
+		arr.append(reloaded if reloaded != null else s)
+	lib.structures = arr
 	_save(lib, path)
