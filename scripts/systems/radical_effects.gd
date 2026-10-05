@@ -35,8 +35,8 @@ static func _cast_mo_shui(p: Player, r: RadicalData) -> void:
 		var ang := 0.0
 		if n > 1:
 			ang = (float(i) / float(n - 1) - 0.5) * 0.52
-		p.shoot(base_dir.rotated(ang), 1.0 * p.attack_factor, 720.0, 0.45, 14.0,
-			Assets.cfg.color_radical, 320.0)
+		p.shoot(base_dir.rotated(ang), 1.0 * p.attack_factor, 720.0 * Balance.px, 0.45,
+			14.0 * Balance.px, Assets.cfg.color_radical, 320.0 * Balance.px)
 	Sfx.play("transform")
 	if p.water_heals:
 		p.heal(1.0)
@@ -51,8 +51,8 @@ static func _cast_mo_shou(p: Player, _r: RadicalData) -> void:
 	for c in parent.get_children():
 		if c is Coin or c is RadicalPickup:
 			var d: Vector2 = (c as Node2D).global_position - p.global_position
-			if d.length() < 460.0:
-				(c as Node2D).global_position = p.global_position + d.normalized() * 30.0
+			if d.length() < 460.0 * Balance.px:
+				(c as Node2D).global_position = p.global_position + d.normalized() * 30.0 * Balance.px
 				pulled += 1
 	Sfx.play("coin")
 	var main := get_main()

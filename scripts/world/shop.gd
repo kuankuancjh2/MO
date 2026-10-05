@@ -22,7 +22,7 @@ func _ready() -> void:
 	z_index = 2
 	var cs := CollisionShape2D.new()
 	var c := CircleShape2D.new()
-	c.radius = 46.0
+	c.radius = float(Balance.d.tile_size) * 0.958
 	cs.shape = c
 	add_child(cs)
 	_main = get_tree().get_first_node_in_group("main")

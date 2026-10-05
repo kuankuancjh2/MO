@@ -32,6 +32,9 @@ func _ready() -> void:
 	var cam := Camera2D.new()
 	cam.position_smoothing_enabled = true
 	cam.position_smoothing_speed = 7.0
+	# ★ 过采样：世界被放大到素材原生尺寸（格子 128），相机缩放拉回来，
+	#   于是可见范围、手感、跳跃格数都和以前完全一样，但素材是 1:1 进渲染的。
+	cam.zoom = Vector2.ONE * Balance.camera_zoom()
 	player.add_child(cam)
 	cam.make_current()
 

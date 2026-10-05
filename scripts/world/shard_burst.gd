@@ -29,7 +29,7 @@ func _process(delta: float) -> void:
 		queue_free()
 		return
 	for s in _shards:
-		s["vel"] = s["vel"] + Vector2(0, 1400.0 * delta)
+		s["vel"] = s["vel"] + Vector2(0, 1400.0 * Balance.px * delta)
 		s["pos"] = s["pos"] + s["vel"] * delta
 		s["rot"] = s["rot"] + s["rot_v"] * delta
 	queue_redraw()

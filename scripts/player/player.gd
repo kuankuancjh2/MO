@@ -435,7 +435,7 @@ func _update_visual() -> void:
 func aim_direction() -> Vector2:
 	var m := get_global_mouse_position()
 	var d := m - global_position
-	if d.length() < 12.0:
+	if d.length() < 12.0 * Balance.px:
 		return Vector2(float(facing), 0.0)
 	return d.normalized()
 
@@ -446,15 +446,15 @@ func do_attack() -> void:
 	var dir := aim_direction()
 	if absf(dir.x) > 0.15:
 		facing = 1 if dir.x > 0.0 else -1
-	shoot(dir, b.attack_damage * attack_factor, b.projectile_speed,
-		b.projectile_life, 9.0, Assets.cfg.color_player, 160.0, attack_breaks_blocks)
+	shoot(dir, b.attack_damage * attack_factor, b.projectile_speed, b.projectile_life,
+		9.0 * Balance.px, Assets.cfg.color_player, 160.0 * Balance.px, attack_breaks_blocks)
 
 
 func shoot(dir: Vector2, dmg: float, speed: float, life: float, size: float, color: Color,
 		knockback: float = 160.0, breaks: bool = false, from: Vector2 = Vector2.INF) -> void:
 	var shot := InkShot.new()
 	shot.setup(dir, dmg, speed, life, size, color, knockback, false, breaks)
-	var origin := from if from != Vector2.INF else position + Vector2(facing * 20.0, -2.0)
+	var origin := from if from != Vector2.INF else position + Vector2(facing * 20.0 * Balance.px, -2.0 * Balance.px)
 	shot.position = origin
 	get_parent().add_child(shot)
 

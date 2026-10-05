@@ -26,9 +26,10 @@ var _home := Vector2.ZERO
 var _vel := Vector2.ZERO
 var _dead := false
 var _contact_cd := 0.0
-var _radius := 52.0
+var _radius := 52.0     ## 在 _ready 里按格子尺寸重算
 
-const ENGAGE_DIST := 420.0
+const ENGAGE_DIST := 420.0     ## 调参单位（48px 格子），运行时按 Balance.px 换算
+var _engage_dist := 420.0
 
 
 func setup(balance: BalanceData, p: Node2D) -> void:
@@ -41,6 +42,8 @@ func setup(balance: BalanceData, p: Node2D) -> void:
 func _ready() -> void:
 	if b == null:
 		b = Balance.d
+	_radius = float(b.tile_size) * 1.083
+	_engage_dist = ENGAGE_DIST * Balance.px
 	add_to_group("boss")
 	collision_layer = 4
 	collision_mask = 0
@@ -65,7 +68,7 @@ func _physics_process(delta: float) -> void:
 
 	var to_p := _player.global_position - global_position
 	if not engaged:
-		if to_p.length() < ENGAGE_DIST:
+		if to_p.length() < _engage_dist:
 			engaged = true
 			_announce("「有」出现了 —— 它不停地造东西。把它抹掉。")
 			Sfx.play("stomp")
@@ -74,8 +77,10 @@ func _physics_process(delta: float) -> void:
 			return
 
 	# 漂浮：保持在主角上方一点，并保持距离
-	var drift := (to_p.normalized() * 120.0) if to_p.length() < 200.0 else Vector2.ZERO
-	var target := _home + Vector2(clampf(to_p.x * 0.25, -180.0, 180.0), -120.0 + sin(_t * 1.6) * 26.0)
+	var k := Balance.px
+	var drift := (to_p.normalized() * 120.0 * k) if to_p.length() < 200.0 * k else Vector2.ZERO
+	var target := _home + Vector2(clampf(to_p.x * 0.25, -180.0 * k, 180.0 * k),
+		(-120.0 + sin(_t * 1.6) * 26.0) * k)
 	_vel = _vel.lerp((target - global_position) * 1.6 + drift, clampf(delta * 3.0, 0.0, 1.0))
 	velocity = _vel
 	move_and_slide()
@@ -111,7 +116,7 @@ func _spawn_minions() -> void:
 	for i in range(2):
 		var e := RedBlock.new()
 		e.setup(b)
-		e.position = global_position + Vector2((i * 2 - 1) * 90.0, 20.0)
+		e.position = global_position + Vector2((i * 2 - 1) * 90.0, 20.0) * Balance.px
 		parent.add_child(e)
 	_announce("「有」造出了两个东西。")
 
@@ -132,7 +137,8 @@ func _spit() -> void:
 	for i in range(3):
 		var d := dir.rotated((i - 1) * 0.22)
 		var shot := InkShot.new()
-		shot.setup(d, b.boss_shot_damage, 420.0, 2.2, 11.0, Color("#ff5a5a"), 0.0, true)
+		shot.setup(d, b.boss_shot_damage, b.boss_shot_speed, 2.2, 11.0 * Balance.px,
+			Color("#ff5a5a"), 0.0, true)
 		shot.position = global_position
 		get_parent().add_child(shot)
 
@@ -155,7 +161,7 @@ func _die() -> void:
 	var parent := get_parent()
 	if parent != null:
 		var burst := ShardBurst.new()
-		burst.setup(global_position, Color(1.0, 0.4, 0.4), 26, 9.0, 300.0)
+		burst.setup(global_position, Color(1.0, 0.4, 0.4), 26, 9.0 * Balance.px, 300.0 * Balance.px)
 		parent.add_child(burst)
 		if parent.has_method("consume_cell"):
 			parent.consume_cell(self)
@@ -163,7 +169,7 @@ func _die() -> void:
 		for i in range(8):
 			var c := Coin.new()
 			c.setup(Assets.cfg.color_coin)
-			c.position = position + Vector2(randf_range(-40, 40), randf_range(-30, 10))
+			c.position = position + Vector2(randf_range(-40, 40), randf_range(-30, 10)) * Balance.px
 			parent.call_deferred("add_child", c)
 	MetaState.add_souls(40)
 	RunState.add_coins(20)

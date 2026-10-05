@@ -18,7 +18,7 @@ func _ready() -> void:
 	z_index = 4
 	var cs := CollisionShape2D.new()
 	var c := CircleShape2D.new()
-	c.radius = 14.0
+	c.radius = float(Balance.d.tile_size) * 0.29
 	cs.shape = c
 	add_child(cs)
 	body_entered.connect(_on_body_entered)
@@ -49,6 +49,8 @@ func _on_body_entered(body: Node2D) -> void:
 
 
 func _draw() -> void:
-	draw_circle(Vector2.ZERO, 9.0, color)
-	draw_arc(Vector2.ZERO, 9.0, 0.0, TAU, 18, color.darkened(0.35), 2.0)
-	draw_circle(Vector2(-2.0, -2.0), 3.0, Color(1, 1, 1, 0.55))
+	var t := float(Balance.d.tile_size)
+	var r := t * 0.1875
+	draw_circle(Vector2.ZERO, r, color)
+	draw_arc(Vector2.ZERO, r, 0.0, TAU, 18, color.darkened(0.35), Balance.px * 2.0)
+	draw_circle(Vector2(-t * 0.042, -t * 0.042), t * 0.0625, Color(1, 1, 1, 0.55))

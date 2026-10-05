@@ -18,8 +18,9 @@ config/features=PackedStringArray("4.7")
 [autoload]
 
 GameInput="*res://scripts/systems/game_input.gd"
-Assets="*res://scripts/systems/assets.gd"
+; Balance 要在 Assets 之前：Assets 的世界字号需要按 Balance.px 缩放
 Balance="*res://scripts/systems/balance.gd"
+Assets="*res://scripts/systems/assets.gd"
 RunState="*res://scripts/systems/run_state.gd"
 MetaState="*res://scripts/systems/meta_state.gd"
 Sfx="*res://scripts/systems/sfx.gd"
@@ -34,3 +35,17 @@ window/stretch/aspect="expand"
 [physics]
 
 2d/default_gravity=1500.0
+
+[importer_defaults]
+
+; ★ 过采样：素材是 128px 原生，世界里按 1:1 摆放，相机缩放到 0.375 显示。
+;   缩小时必须靠 mipmap 才不会出现闪烁/锯齿，所以统一给贴图开 mipmap。
+texture={
+"compress/mode": 0,
+"mipmaps/generate": true
+}
+
+[rendering]
+
+; Linear Mipmap：配合上面的 mipmap，把 128px 素材缩到屏幕上时干净
+textures/canvas_textures/default_texture_filter=2

@@ -20,15 +20,17 @@ func art_name() -> String:
 
 func _build() -> void:
 	_ledge = RayCast2D.new()
-	_ledge.target_position = Vector2(0, 40)
-	_ledge.position = Vector2(_half + 4.0, 0.0)
+	# 悬崖预判的射线长度要按格子算 —— 过采样后格子变大了，用旧的 40px 会够不到地面，
+	# 结果怪会以为处处是悬崖、原地反复转身（这就是"怪不动"的经典原因）
+	_ledge.target_position = Vector2(0, float(Balance.d.tile_size) * 0.95)
+	_ledge.position = Vector2(_half + 4.0 * Balance.px, 0.0)
 	_ledge.enabled = true
 	add_child(_ledge)
 
 
 func ai(_delta: float) -> void:
 	velocity.x = float(dir) * speed
-	_ledge.position.x = _half + 4.0
+	_ledge.position.x = _half + 4.0 * Balance.px
 	if is_on_wall():
 		_flip()
 	elif is_on_floor() and not _ledge.is_colliding():

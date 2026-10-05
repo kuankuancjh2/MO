@@ -38,6 +38,8 @@ func setup(balance: BalanceData, hp_mul: float = 1.0) -> void:
 func _ready() -> void:
 	if b == null:
 		b = Balance.d
+	# 尺寸从格子推导 —— 过采样改了格子尺寸，这里跟着变
+	_half = float(b.tile_size) * 0.375
 	collision_layer = 4
 	collision_mask = 1
 	z_index = 2
@@ -94,7 +96,7 @@ func hit(damage: float, knockback: Vector2 = Vector2.ZERO) -> void:
 	hp -= damage
 	_flash = 0.14
 	if knockback != Vector2.ZERO:
-		velocity += Vector2(knockback.x * 0.4, -90.0)
+		velocity += Vector2(knockback.x * 0.4, -90.0 * Balance.px)
 	queue_redraw()
 	if hp <= 0.0:
 		_die()
@@ -124,7 +126,7 @@ func _drop_coins() -> void:
 	for i in range(n):
 		var c := Coin.new()
 		c.setup(Assets.cfg.color_coin)
-		c.position = position + Vector2(randf_range(-12, 12), randf_range(-16, 4))
+		c.position = position + Vector2(randf_range(-12, 12), randf_range(-16, 4)) * Balance.px
 		parent.call_deferred("add_child", c)
 
 

@@ -375,12 +375,12 @@ func _test_ride() -> void:
 	var e := RedBlock.new()
 	e.setup(Balance.d)
 	e.speed = 110.0
-	e.position = Vector2(cx2 * _tile() + 24.0, surf * _tile() - 18.0)
+	e.position = Vector2(cx2 * _tile() + _tile() * 0.5, surf * _tile() - _tile() * 0.375)
 	_world.add_child(e)
 	await _wait_physics(6)
 
 	# 落到它头上
-	_player.position = e.position + Vector2(0.0, -34.0)
+	_player.position = e.position + Vector2(0.0, -_tile() * 1.35)
 	_player.velocity = Vector2(0, 60)
 	_player._invuln = 0.0
 	var hp0 := _player.hp
@@ -406,7 +406,7 @@ func _test_ride() -> void:
 	var e2 := RedBlock.new()
 	e2.setup(Balance.d)
 	e2.speed = 0.0
-	e2.position = _player.position + Vector2(34.0, -6.0)
+	e2.position = _player.position + Vector2(_tile() * 0.72, -_tile() * 0.12)
 	_world.add_child(e2)
 	await _wait_physics(6)
 	_player._invuln = 0.0
@@ -470,7 +470,7 @@ func _test_radicals_and_synergy() -> void:
 	await get_tree().process_frame
 	var coin := Coin.new()
 	coin.setup(Assets.cfg.color_coin)
-	coin.position = _player.position + Vector2(300, 0)
+	coin.position = _player.position + Vector2(_tile() * 6.0, 0)
 	_world.add_child(coin)
 	await _wait_physics(3)
 	var d0: float = coin.global_position.distance_to(_player.global_position)
@@ -575,7 +575,7 @@ func _test_boss() -> void:
 	await _wait_physics(20)
 	var boss := Boss.new()
 	boss.setup(Balance.d, _player)
-	boss.position = _player.global_position + Vector2(300.0, -120.0)
+	boss.position = _player.global_position + Vector2(_tile() * 4.0, -_tile() * 1.5)
 	boss._home = boss.position
 	_world.add_child(boss)
 	await _wait_physics(20)

@@ -28,9 +28,10 @@ func _draw() -> void:
 	var s := float(_size)
 	var c := Color(_color.r, _color.g, _color.b, _color.a * a)
 	var seg := s / 3.0
+	var lw := Balance.px * 2.0
 	for i in range(3):
 		var o := i * seg
-		draw_line(Vector2(o, 0), Vector2(o + seg * 0.6, 0), c, 2.0)
-		draw_line(Vector2(o, s), Vector2(o + seg * 0.6, s), c, 2.0)
-		draw_line(Vector2(0, o), Vector2(0, o + seg * 0.6), c, 2.0)
-		draw_line(Vector2(s, o), Vector2(s, o + seg * 0.6), c, 2.0)
+		draw_line(Vector2(o, 0), Vector2(o + seg * 0.6, 0), c, lw)
+		draw_line(Vector2(o, s), Vector2(o + seg * 0.6, s), c, lw)
+		draw_line(Vector2(0, o), Vector2(0, o + seg * 0.6), c, lw)
+		draw_line(Vector2(s, o), Vector2(s, o + seg * 0.6), c, lw)

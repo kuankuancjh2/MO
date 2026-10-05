@@ -53,6 +53,7 @@ func glyph() -> String:
 func _ready() -> void:
 	if b == null:
 		b = Balance.d
+	_half = float(b.tile_size) * 0.354
 	collision_layer = 4
 	collision_mask = 0
 	z_index = 3
@@ -79,10 +80,10 @@ func _physics_process(delta: float) -> void:
 	if _target != null and is_instance_valid(_target):
 		var d := _target.global_position - global_position
 		var want := d.normalized() * _speed
-		if d.length() < 40.0:
+		if d.length() < 40.0 * Balance.px:
 			want = Vector2.ZERO
 		velocity = velocity.lerp(want, clampf(delta * 2.2, 0.0, 1.0))
-	velocity.y += sin(_t * 2.6) * 6.0
+	velocity.y += sin(_t * 2.6) * 6.0 * Balance.px
 	_prev_pos = global_position
 	move_and_slide()
 	move_delta = global_position - _prev_pos
@@ -143,15 +144,15 @@ func _draw() -> void:
 		var sz := _art.get_size()
 		draw_texture_rect(_art, Rect2(-sz * 0.5, sz), false, Color(1, 1, 1, 1))
 		return
-	var red := Color(1.0, 0.28, 0.28)
-	if _flash > 0.0:
-		red = Color.WHITE
-	draw_circle(Vector2.ZERO, _half, Color(0.10, 0.06, 0.08, 0.85))
-	draw_arc(Vector2.ZERO, _half, 0.0, TAU, 28, red, 2.5)
 	var f := Assets.font
-	if f != null:
-		var ch := glyph()
-		var fs := Assets.cfg.radical_font_size
-		var sz2 := f.get_string_size(ch, HORIZONTAL_ALIGNMENT_LEFT, -1, fs)
-		draw_string(f, Vector2(-sz2.x * 0.5, sz2.y * 0.5 - 5.0), ch,
-			HORIZONTAL_ALIGNMENT_LEFT, -1, fs, red)
+	if f == null:
+		return
+	# ★ 只有一个空心字：没有底盘、没有圈、没有脸。
+	#   实心 = 有之物（普通敌人）；空心 = 偏旁（不完整的字）—— 两类怪一眼分得开。
+	var ch := glyph()
+	var fs := Assets.cfg.radical_font_size
+	var sz2 := f.get_string_size(ch, HORIZONTAL_ALIGNMENT_LEFT, -1, fs)
+	var at := Vector2(-sz2.x * 0.5, sz2.y * 0.5 - Balance.px * 5.0)
+	var col := Color(1.0, 0.28, 0.28) if _flash <= 0.0 else Color.WHITE
+	draw_string_outline(f, at, ch, HORIZONTAL_ALIGNMENT_LEFT, -1, fs,
+		int(Balance.px * 7.0), Color(col.r, col.g, col.b, 0.95))

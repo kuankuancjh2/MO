@@ -53,6 +53,7 @@ func _ready() -> void:
 	cs.shape = rs
 	add_child(cs)
 	_art = Assets.get_art("enemy_flyer")
+	_half = float(b.tile_size) * 0.354
 	home = position
 	_phase = randf() * TAU
 	_prev_pos = position
@@ -75,12 +76,13 @@ func _physics_process(delta: float) -> void:
 
 	# 极缓慢地把巡逻中心挪向玩家（所以它不会飞走失联，但也不会贴脸）
 	if _target != null and is_instance_valid(_target):
-		home.x = move_toward(home.x, _target.global_position.x, 26.0 * delta)
-		home.y = move_toward(home.y, _target.global_position.y - 60.0, 12.0 * delta)
+		home.x = move_toward(home.x, _target.global_position.x, 26.0 * Balance.px * delta)
+		home.y = move_toward(home.y, _target.global_position.y - 60.0 * Balance.px,
+			12.0 * Balance.px * delta)
 
 	# 平滑的正弦巡航：水平往返 + 上下起伏
-	var tx := home.x + sin(_t * 1.05 + _phase) * 115.0
-	var ty := home.y + sin(_t * 1.7 + _phase) * 30.0
+	var tx := home.x + sin(_t * 1.05 + _phase) * 115.0 * Balance.px
+	var ty := home.y + sin(_t * 1.7 + _phase) * 30.0 * Balance.px
 	_prev_pos = global_position
 	velocity = (Vector2(tx, ty) - global_position) * 2.6
 	velocity = velocity.limit_length(_speed * 1.9)
@@ -119,7 +121,7 @@ func _die() -> void:
 		for i in range(randi_range(coin_min, coin_max)):
 			var c := Coin.new()
 			c.setup(Assets.cfg.color_coin)
-			c.position = position + Vector2(randf_range(-12, 12), randf_range(-12, 8))
+			c.position = position + Vector2(randf_range(-12, 12), randf_range(-12, 8)) * Balance.px
 			w.call_deferred("add_child", c)
 	queue_free()
 

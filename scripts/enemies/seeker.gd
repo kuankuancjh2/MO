@@ -16,6 +16,7 @@ var _was_on_wall := false
 func setup(balance: BalanceData, hp_mul: float = 1.0) -> void:
 	super.setup(balance, hp_mul)
 	speed = balance.enemy_speed * 0.95
+	jump_velocity = -330.0 * Balance.px
 
 
 func art_name() -> String:

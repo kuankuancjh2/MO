@@ -9,6 +9,7 @@ const ART_EXTS := ["png", "jpg", "jpeg", "webp"]
 var cfg: AssetConfig
 var font: Font
 var _art_cache: Dictionary = {}
+var _art_index: Dictionary = {}
 var _art_found: Array[String] = []
 
 
@@ -17,8 +18,19 @@ func _ready() -> void:
 		cfg = load(CONFIG_PATH) as AssetConfig
 	if cfg == null:
 		cfg = AssetConfig.new()
+	_scale_fonts()
 	_setup_font()
 	_scan_art()
+
+
+## 过采样：世界空间里的字号要跟着格子一起放大（HUD 是屏幕空间，不缩放）
+func _scale_fonts() -> void:
+	var k := Balance.px
+	if is_equal_approx(k, 1.0):
+		return
+	cfg.player_font_size = int(round(float(cfg.player_font_size) * k))
+	cfg.radical_font_size = int(round(float(cfg.radical_font_size) * k))
+	cfg.enemy_font_size = int(round(float(cfg.enemy_font_size) * k))
 
 
 func _setup_font() -> void:
@@ -35,18 +47,26 @@ func _setup_font() -> void:
 
 
 ## ── 美术资源替换（和音频一样：放文件即生效，不改代码）──────────
-## 把图丢进 res://assets/art/，文件名见 docs/美术资源指南.md。
+## 把图丢进 res://assets/art/ **或它的任意子目录**，文件名见 docs/美术资源指南.md。
 ## 找不到就用程序画的占位图。
+## 说明：Godot 的 ResourceLoader 按路径缓存 —— 同一个文件加载 N 次返回同一个
+## Texture2D 实例，内存里只有一份。所以这里不存在"存了一堆一样的素材"的问题。
 
 func get_art(name: String) -> Texture2D:
 	if _art_cache.has(name):
 		return _art_cache[name]
 	var tex: Texture2D = null
-	for ext in ART_EXTS:
-		var path := "%s/%s.%s" % [ART_DIR, name, ext]
-		if ResourceLoader.exists(path):
-			tex = load(path) as Texture2D
-			break
+	# 1) 先在启动时建立的文件名索引里找（支持子目录）
+	var path: String = _art_index.get(name, "")
+	if path != "":
+		tex = load(path) as Texture2D
+	# 2) 兜底：直接按 res://assets/art/<name>.<ext> 探（导出后索引可能扫不到）
+	if tex == null:
+		for ext in ART_EXTS:
+			var p := "%s/%s.%s" % [ART_DIR, name, ext]
+			if ResourceLoader.exists(p):
+				tex = load(p) as Texture2D
+				break
 	_art_cache[name] = tex
 	return tex
 
@@ -66,23 +86,34 @@ func has_art(name: String) -> bool:
 	return get_art(name) != null
 
 
+## 启动时递归扫一遍 assets/art/（含子目录），建「文件名(无扩展) -> 完整路径」索引
 func _scan_art() -> void:
-	var dir := DirAccess.open(ART_DIR)
+	_index_art(ART_DIR)
+	if _art_index.is_empty():
+		print("MO: assets/art/ 里没找到图片，全部使用程序绘制的占位图。")
+	else:
+		print("MO: 已索引 %d 张美术素材（assets/art/，含子目录）。" % _art_index.size())
+
+
+func _index_art(dir_path: String, depth: int = 0) -> void:
+	if depth > 3:
+		return
+	var dir := DirAccess.open(dir_path)
 	if dir == null:
-		print("MO: 没有 res://assets/art/ 目录，全部使用程序绘制的占位图。")
-		print("    要换美术：把图片丢进 assets/art/，文件名见 docs/美术资源指南.md")
 		return
 	dir.list_dir_begin()
 	var f := dir.get_next()
 	while f != "":
-		if not dir.current_is_dir() and f != "README.md":
-			_art_found.append(f)
+		if dir.current_is_dir():
+			if not f.begins_with("."):
+				_index_art("%s/%s" % [dir_path, f], depth + 1)
+		else:
+			var ext := f.get_extension().to_lower()
+			if ART_EXTS.has(ext) and not f.ends_with(".import") and not f.ends_with(".remap"):
+				_art_index[f.get_basename()] = "%s/%s" % [dir_path, f]
+				_art_found.append(f)
 		f = dir.get_next()
 	dir.list_dir_end()
-	if _art_found.is_empty():
-		print("MO: assets/art/ 是空的，使用程序绘制的占位图。")
-	else:
-		print("MO: 已加载 %d 个美术资源（assets/art/）。" % _art_found.size())
 
 
 

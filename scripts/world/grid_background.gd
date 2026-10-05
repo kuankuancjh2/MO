@@ -31,10 +31,11 @@ func _draw() -> void:
 	var y0 := floori(origin.y / tile)
 	var y1 := ceili((origin.y + size.y) / tile)
 
-	var dash := 6.0
+	var dash := Balance.d.tile_size * 0.125
+	var lw := maxf(1.0, Balance.px)
 	for x in range(x0, x1 + 1):
 		var px := float(x * tile)
-		draw_dashed_line(Vector2(px, origin.y), Vector2(px, origin.y + size.y), color, 1.0, dash)
+		draw_dashed_line(Vector2(px, origin.y), Vector2(px, origin.y + size.y), color, lw, dash)
 	for y in range(y0, y1 + 1):
 		var py := float(y * tile)
-		draw_dashed_line(Vector2(origin.x, py), Vector2(origin.x + size.x, py), color, 1.0, dash)
+		draw_dashed_line(Vector2(origin.x, py), Vector2(origin.x + size.x, py), color, lw, dash)

@@ -54,8 +54,9 @@ func _ready() -> void:
 	var cs := CollisionShape2D.new()
 	var rs := RectangleShape2D.new()
 	if _is_bridge():
-		rs.size = Vector2(_size, 14.0)
-		cs.position = Vector2(_size * 0.5, 7.0)
+		var h := float(_size) * 0.29
+		rs.size = Vector2(_size, h)
+		cs.position = Vector2(_size * 0.5, h * 0.5)
 	else:
 		rs.size = Vector2(_size, _size)
 		cs.position = Vector2(_size, _size) * 0.5
@@ -186,8 +187,9 @@ func _draw() -> void:
 ## 桥：一块薄木板 + 两端的吊索，一眼看出是"连接器"而不是岛
 func _draw_bridge(s: Vector2, fill: Color, border: Color, alpha: float,
 		scale: float, art: Texture2D) -> void:
-	draw_set_transform(Vector2(s.x * 0.5, 7.0), 0.0, Vector2(scale, scale))
-	var plank := Rect2(-s.x * 0.5, -7.0, s.x, 14.0)
+	draw_set_transform(Vector2(s.x * 0.5, float(_size) * 0.145), 0.0, Vector2(scale, scale))
+	var bh := float(_size) * 0.29
+	var plank := Rect2(-s.x * 0.5, -bh * 0.5, s.x, bh)
 	if art != null:
 		draw_texture_rect(art, plank, false, Color(1, 1, 1, alpha))
 	else:

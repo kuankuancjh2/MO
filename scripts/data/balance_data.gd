@@ -5,6 +5,16 @@ extends Resource
 ##
 ## 注意：Godot 只把「和默认值不同」的项写进 .tres，所以那个文件很短，这是正常的。
 
+@export_group("渲染 / 过采样")
+## ★ 过采样：素材是原生 128px，而本文件里的像素数值是按「48px 格子」调的调参单位。
+## 打开后 Balance 会在加载时把所有"像素长度"统一乘 art_tile_size/48，
+## 同时相机 zoom 拉回倒数 —— 于是视觉布局、跳跃格数、手感完全不变，
+## 但素材以 1:1 原生尺寸进渲染管线（相当于做了一次 SSAA）。
+## 以「格」为单位的数值（掉落阈值、刷新距离…）和「秒」为单位的数值都不受影响。
+@export var oversample: bool = true
+## 素材原生格子尺寸（缩放比 = 它 / 48）
+@export var art_tile_size: int = 128
+
 @export_group("世界")
 @export var tile_size: int = 48
 ## 0 = 每次开局随机种子；非 0 = 固定种子（便于复现调试）
@@ -85,3 +95,4 @@ extends Resource
 @export var boss_hp: float = 20.0
 @export var boss_contact_damage: float = 1.0
 @export var boss_shot_damage: float = 1.0
+@export var boss_shot_speed: float = 420.0
