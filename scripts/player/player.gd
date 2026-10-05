@@ -43,6 +43,8 @@ var can_double_jump: bool = false
 
 var facing: int = 1
 var riding: Node2D = null
+var climbing := false
+var _climb_cd := 0.0
 
 var _dead := false
 var _attack_cd := 0.0
@@ -63,6 +65,7 @@ var _regen_t := 0.0
 
 var _glyph: Label
 var _sprite: Sprite2D
+var _world: Node
 var _idle_frames: Array = []
 var _run_frames: Array = []
 var _jump_art: Texture2D
@@ -96,6 +99,9 @@ func _ready() -> void:
 	add_child(_glyph)
 
 	_load_art()
+	_world = get_parent()
+	if _world != null and not _world.has_method("touch_around"):
+		_world = null
 	_layer = TerrainGen.layer_of(global_position.y, b.tile_size)
 	RunState.radicals_changed.connect(_on_radicals_changed)
 	_on_radicals_changed()
@@ -229,12 +235,53 @@ func _physics_process(delta: float) -> void:
 	var want_attack := false
 	var want_skill_1 := false
 	var want_skill_2 := false
+	var want_up := false
+	var want_down := false
 	if not input_locked:
 		dir = Input.get_axis("move_left", "move_right")
 		want_jump = Input.is_action_just_pressed("jump")
 		want_attack = Input.is_action_pressed("attack")
 		want_skill_1 = Input.is_action_just_pressed("skill_1")
 		want_skill_2 = Input.is_action_just_pressed("skill_2")
+		want_up = Input.is_action_pressed("move_up")
+		want_down = Input.is_action_pressed("move_down")
+
+	# ── 梯子：全作唯一能"向上爬"的东西 ──────────────────
+	_climb_cd = maxf(_climb_cd - delta, 0.0)
+	var on_ladder := false
+	if _world != null and _world.has_method("ladder_at"):
+		on_ladder = _world.ladder_at(_player_rect())
+	if on_ladder and _climb_cd <= 0.0 and (want_up or want_down):
+		if not climbing:
+			Sfx.play_varied("land", 0.1)
+		climbing = true
+	if climbing and (not on_ladder or want_jump):
+		climbing = false
+		_climb_cd = 0.25
+		if want_jump:
+			velocity.y = b.jump_velocity * 0.85 * jump_factor
+			Sfx.play_varied("jump")
+
+	if climbing:
+		# 关重力、上下匀速、水平变慢；不能触发二段跳/卸力
+		var vy := 0.0
+		if want_up:
+			vy = -1.0
+		elif want_down:
+			vy = 1.0
+		velocity.y = vy * b.move_speed * 0.80
+		velocity.x = move_toward(velocity.x, dir * b.move_speed * 0.45, b.accel * delta)
+		if absf(dir) > 0.05:
+			facing = 1 if dir > 0.0 else -1
+		var pre_v := velocity
+		move_and_slide()
+		_airborne = false
+		_touch_bodies(pre_v)
+		_touch_ground()
+		_update_layer()
+		_update_glyph()
+		_update_visual()
+		return
 
 	if want_jump:
 		_buffer = b.jump_buffer_time
@@ -279,10 +326,25 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 	_track_fall()
 	_touch_bodies(pre_vel)
+	_touch_ground()
 	_apply_ride()
 	_update_layer()
 	_update_glyph()
 	_update_visual()
+
+
+## ★ 踩踏检测按「格」来：把与主角矩形重叠的格子全部标记为踩过。
+##   靠 move_and_slide 的碰撞回调在高速移动 / 刚好跨格时会漏格子，
+##   表现就是"跑快了脚下的地不碎"。
+func _touch_ground() -> void:
+	if _world == null:
+		return
+	_world.touch_around(_player_rect(), self)
+
+
+func _player_rect() -> Rect2:
+	var half := Vector2(b.player_size, b.player_size) * 0.5
+	return Rect2(position - half, half * 2.0)
 
 
 ## 骑在怪身上：把怪这一帧的**水平**位移补给主角（怪到哪你到哪）。

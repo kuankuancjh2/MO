@@ -5,7 +5,10 @@ extends Node
 func _ready() -> void:
 	_bind("move_left", [KEY_A, KEY_LEFT], [])
 	_bind("move_right", [KEY_D, KEY_RIGHT], [])
-	_bind("jump", [KEY_SPACE, KEY_W, KEY_UP, KEY_Z], [])
+	# W/↑ 留给爬梯，跳跃用空格/Z
+	_bind("jump", [KEY_SPACE, KEY_Z], [])
+	_bind("move_up", [KEY_W, KEY_UP], [])
+	_bind("move_down", [KEY_S, KEY_DOWN], [])
 	_bind("attack", [KEY_J, KEY_X], [MOUSE_BUTTON_LEFT])
 	_bind("skill_1", [KEY_Q], [])
 	_bind("skill_2", [KEY_E], [])

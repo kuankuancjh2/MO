@@ -112,6 +112,12 @@ func _draw() -> void:
 		return                     # 拱腔：这里不画，露出背后的虚空（视觉上的连拱）
 	var s := Vector2(_size, _size)
 	var tint := Color(_gray, _gray, _gray, 1.0)
+	# ★ 含偏旁的砖给一点极淡的彩色（用户要求"稍微有彩色，但是很少"），
+	#   这样在地面上扫一眼就能注意到它。
+	if radical != null and state == State.SOLID:
+		var k := 0.20
+		var t := radical.tint
+		tint = Color(lerpf(_gray, t.r, k), lerpf(_gray, t.g, k), lerpf(_gray, t.b, k), 1.0)
 	var alpha := 1.0
 	var scale := 1.0
 
@@ -121,7 +127,7 @@ func _draw() -> void:
 		var br: float = Balance.d.vanish_blink_ratio
 		if prog < wr:
 			# 第一段：墨色变深（"正在被抹掉"）
-			var g := lerpf(_gray, 0.55, prog / maxf(wr, 0.001))
+			var g := lerpf(tint.r, 0.55, prog / maxf(wr, 0.001))
 			tint = Color(g, g, g, 1.0)
 		elif prog < wr + br:
 			# 第二段：闪得越来越快（黑白语言：在深灰与近黑之间闪）
@@ -138,28 +144,28 @@ func _draw() -> void:
 			scale = 1.0 - dp * 0.35
 
 	tint.a = alpha
+	# 逐格消失时整体缩一下（消散感）
 	if is_bottom:
 		# 岛底：把地表砖垂直翻过来当收口
 		draw_set_transform(Vector2(0, _size), 0.0, Vector2(1, -1))
-		_draw_one(s, tint, scale)
+		_draw_one(tint, scale)
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	else:
-		_draw_one(s, tint, scale)
-
-	# 藏了偏旁的砖：砖面上一个小黑点作为提示（黑白语言，不用彩色光晕）
-	# 带「谟」时点更大更实 —— 那是它的被动：让你看得见藏起来的字
-	if radical != null and state == State.SOLID and not is_arch:
-		var reveal := RunState.has_radical_id("mo_yan")
-		var r := float(_size) * (0.055 if not reveal else 0.085)
-		draw_circle(s * 0.5, r, Color(0, 0, 0, 0.85 if not reveal else 1.0))
+		_draw_one(tint, scale)
 
 
-func _draw_one(s: Vector2, tint: Color, scale: float) -> void:
-	draw_set_transform(s * 0.5, 0.0, Vector2(scale, scale))
-	var r := Rect2(-s * 0.5, s)
+func _draw_one(tint: Color, scale: float) -> void:
+	# ★ 连接材质：按素材的「内容包围盒」把它拉伸到恰好铺满格子（外扩一点让描边相叠），
+	#   否则每张图自己的 1~2px 留白会在方块之间透出一道亮缝。
 	if _art != null:
-		draw_texture_rect(_art, r, false, tint)
-	else:
-		draw_rect(r, tint, true)
-		draw_rect(r, Color(0, 0, 0, tint.a), false, Balance.px * 2.0)
+		var fr := Assets.art_fill_rect(art_name, float(_size), 0.03)
+		var c := Vector2(_size, _size) * 0.5
+		draw_set_transform(c, 0.0, Vector2(scale, scale))
+		draw_texture_rect(_art, Rect2(fr.position - c, fr.size), false, tint)
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		return
+	draw_set_transform(Vector2(_size, _size) * 0.5, 0.0, Vector2(scale, scale))
+	var r := Rect2(Vector2(-float(_size), -float(_size)) * 0.5, Vector2(_size, _size))
+	draw_rect(r, tint, true)
+	draw_rect(r, Color(0, 0, 0, tint.a), false, Balance.px * 2.0)
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)

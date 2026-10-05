@@ -1,14 +1,13 @@
 class_name DecoLayer
 extends Node2D
-## 装饰层：长在地表上的树/灌木/陶罐/柱子/牌子…
+## 装饰层：地表上的树/灌木/陶罐/柱子/牌子，桥下的拱撑，结构里的拱门/梯子/栅栏…
 ##
-## ★ 全部是**纯视觉、无碰撞**，而且**一个节点都不额外创建** ——
-##   整层只有这一个 Node2D，在 _draw 里按"可见格"把素材画出来。
+## ★ 全部是**纯视觉、无碰撞**，而且**一个节点都不额外创建** —— 整层只有一个 Node2D。
 ##   放置是确定性随机（看格坐标），所以镜头来回移动装饰不会跳。
 ##
-## 这一层是"地图信息量"的主要来源：参考图里装饰密度比地形还高。
+## ★ 全部按素材的「内容包围盒」对齐（底部居中），否则会因为透明留白而"浮"在地上。
 
-const MAX_DECO := 900        ## 保险丝：单帧最多画多少个
+const MAX_DECO := 1200
 
 var world: GameWorld
 var _tile: int = 128
@@ -25,7 +24,7 @@ func setup(w: GameWorld) -> void:
 
 
 func _process(_delta: float) -> void:
-	queue_redraw()      # 只画可见范围，成本就是一屏几十次绘制
+	queue_redraw()
 
 
 func _art(name: String) -> Texture2D:
@@ -36,35 +35,12 @@ func _art(name: String) -> Texture2D:
 	return t
 
 
-## 结构里的拱门/梯子/栅栏…（非实心，但要画出来）
-func _draw_structure_markers(x0: int, x1: int, y0: int, y1: int, k0: int, k1: int) -> void:
-	var si0 := TerrainGen.fdiv(x0 - TerrainGen.STRUCT_MARGIN, TerrainGen.STRUCT_SPAN)
-	var si1 := TerrainGen.fdiv(x1 - TerrainGen.STRUCT_MARGIN, TerrainGen.STRUCT_SPAN)
-	for k in range(k0, k1 + 1):
-		for si in range(si0, si1 + 2):
-			var st := TerrainGen.struct_for_slot(si, k, _seed)
-			if st == null:
-				continue
-			var ox := TerrainGen.struct_origin_col(si)
-			var base := TerrainGen.struct_base_row(si, k, _seed)
-			for gr in range(st.height()):
-				var line: String = st.grid[gr]
-				for col in range(line.length()):
-					var name := TerrainGen.marker_art(line[col])
-					if name == "":
-						continue
-					var tex := _art(name)
-					if tex == null:
-						continue
-					var wx := ox + col
-					var wy := base + gr - st.height()
-					if wx < x0 or wx > x1 or wy < y0 or wy > y1:
-						continue
-					var size := tex.get_size()
-					# 贴单元格底部（拱门/栅栏/梯子都站在地上）
-					var at := Vector2(wx * _tile + _tile * 0.5, (wy + 1) * _tile)
-					draw_texture_rect(tex, Rect2(at - Vector2(size.x * 0.5, size.y), size),
-						false, Color(1, 1, 1, 1))
+func _blit(name: String, at: Vector2, tint: Color, scale: float = 1.0) -> bool:
+	var tex := _art(name)
+	if tex == null:
+		return false
+	draw_texture_rect(tex, Assets.art_rect_bottom_center(name, at, scale), false, tint)
+	return true
 
 
 func _draw() -> void:
@@ -84,6 +60,33 @@ func _draw() -> void:
 	var k0 := TerrainGen.fdiv(y0, TerrainGen.BAND_ROWS)
 	var k1 := TerrainGen.fdiv(y1, TerrainGen.BAND_ROWS)
 
+	_bridge_supports(x0, x1, k0, k1)
+	_draw_deco(x0, x1, k0, k1)
+	_draw_structure_markers(x0, x1, y0, y1, k0, k1)
+
+
+## 桥下的拱撑：桥面下方画 bridge_arch，缺口两端画桥墩
+func _bridge_supports(x0: int, x1: int, k0: int, k1: int) -> void:
+	var s := _seed
+	for k in range(k0, k1 + 1):
+		for cx in range(x0, x1 + 1):
+			if TerrainGen.kind_at(cx, k, s) != 2:
+				continue
+			var row := TerrainGen.surface_row(cx, k, s)
+			var under := Vector2(cx * _tile + _tile * 0.5, (row + 2) * _tile)
+			# 拱撑：只在下面是空的时画（免得插进地体）
+			if not TerrainGen.is_solid(cx, row + 1, s):
+				_blit("bridge_arch", under, Color(1, 1, 1, 0.92))
+			# 缺口两端 -> 桥墩
+			var first := TerrainGen.kind_at(cx - 1, k, s) != 2
+			var last := TerrainGen.kind_at(cx + 1, k, s) != 2
+			if first or last:
+				_blit("bridge_column", Vector2(cx * _tile + _tile * 0.5, (row + 3) * _tile),
+					Color(1, 1, 1, 0.95))
+
+
+## 地表装饰：按群系长树/灌木/陶罐/柱子…
+func _draw_deco(x0: int, x1: int, k0: int, k1: int) -> void:
 	var drawn := 0
 	for k in range(k0, k1 + 1):
 		for cx in range(x0, x1 + 1):
@@ -95,19 +98,37 @@ func _draw() -> void:
 			var surf := TerrainGen.surface_row(cx, k, _seed)
 			if not TerrainGen.is_solid(cx, surf, _seed):
 				continue
-			# 地表被莫抹掉过就不长东西了
 			if world.is_destroyed(Vector2i(cx, surf)):
 				continue
-			var tex := _art(name)
-			if tex == null:
-				continue
-			var size := tex.get_size()
-			# 底部对齐：装饰站在地表砖的顶边上
-			var pos := Vector2(cx * _tile + _tile * 0.5, surf * _tile)
 			var occ := TerrainGen.rand01(cx, k * 31 + 1901, _seed)
 			var tint := Color(1, 1, 1, 0.72 + occ * 0.28)
-			draw_texture_rect(tex, Rect2(pos - Vector2(size.x * 0.5, size.y), size),
-				false, tint)
-			drawn += 1
-	# 结构里的"非实心构件"（拱门/梯子/栅栏/灌木/木板/钉刺/门/箱子）
-	_draw_structure_markers(x0, x1, y0, y1, k0, k1)
+			var at := Vector2(cx * _tile + _tile * 0.5, surf * _tile)
+			if _blit(name, at, tint, 0.9 + occ * 0.25):
+				drawn += 1
+
+
+## 结构里的拱门/梯子/栅栏…（非实心，但要画出来）
+func _draw_structure_markers(x0: int, x1: int, y0: int, y1: int, k0: int, k1: int) -> void:
+	var si0 := TerrainGen.fdiv(x0 - TerrainGen.STRUCT_MARGIN, TerrainGen.STRUCT_SPAN)
+	var si1 := TerrainGen.fdiv(x1 - TerrainGen.STRUCT_MARGIN, TerrainGen.STRUCT_SPAN)
+	for k in range(k0, k1 + 1):
+		for si in range(si0, si1 + 2):
+			var st := TerrainGen.struct_for_slot(si, k, _seed)
+			if st == null:
+				continue
+			var ox := TerrainGen.struct_anchor_col(si, k, st.width(), _seed)
+			if ox < 0:
+				continue
+			var base := TerrainGen.struct_base_row(si, k, _seed)
+			for gr in range(st.height()):
+				var line: String = st.grid[gr]
+				for col in range(line.length()):
+					var name := TerrainGen.marker_art(line[col])
+					if name == "":
+						continue
+					var wx := ox + col
+					var wy := base + gr - st.height()
+					if wx < x0 or wx > x1 or wy < y0 or wy > y1:
+						continue
+					_blit(name, Vector2(wx * _tile + _tile * 0.5, (wy + 1) * _tile),
+						Color(1, 1, 1, 1))

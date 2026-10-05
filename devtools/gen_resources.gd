@@ -59,8 +59,8 @@ func _gen_radical_library() -> void:
 			"磁吸：金币与掉落物会飞向你", "敌人也会被你牵过来，且你移速 -8%",
 			Color("#ff9ec4"), {"attract": true, "move_factor": 0.92}],
 		["mo_ri", "日", "暮", "bottom", RadicalData.EffectType.PASSIVE, "暮色",
-			"你的地面消失速度变慢 40%", "天黑了，视野变暗",
-			Color("#ffcf6b"), {"vanish_slow_factor": 1.4, "vision_factor": 0.75}],
+			"你的地面消失速度变慢 40%", "天黑了：只有你周围一小圈看得见",
+			Color("#ffcf6b"), {"vanish_slow_factor": 1.4, "vision_factor": 0.35}],
 		["mo_shi", "饣", "馍", "left", RadicalData.EffectType.INSTANT, "口粮",
 			"拾取时立即回复 1 心", "无",
 			Color("#ffd9a0"), {"heal_on_pickup": 1.0}],
@@ -128,6 +128,20 @@ func _gen_structure_library() -> void:
 		return
 
 	var defs: Array = [
+		{
+			"id": "ladder_tower",
+			"name": "梯塔",
+			"weight": 0.9,
+			# 梯子是全作唯一能"向上爬"的东西：爬到顶上往右一踏就是平台
+			"grid": PackedStringArray([
+				".L......",
+				".L######",
+				".L......",
+				".L......",
+				".L......",
+				"........",
+			]),
+		},
 		{
 			"id": "hut",
 			"name": "小屋",

@@ -81,6 +81,8 @@ static func fbm1(x: float, s: int) -> float:
 
 static func clear_cache() -> void:
 	_col_cache.clear()
+	_anchor_cache.clear()
+	_slot_cache.clear()
 
 
 # ── 生物群系 ───────────────────────────────────────────
@@ -181,6 +183,8 @@ static func _compute_column(cx: int, k: int, s: int) -> Vector4i:
 static func column(cx: int, k: int, s: int) -> Vector4i:
 	if s != _cache_seed:
 		_col_cache.clear()
+		_anchor_cache.clear()
+		_slot_cache.clear()
 		_cache_seed = s
 	var key := Vector2i(cx, k)
 	var c: Variant = _col_cache.get(key)
@@ -223,33 +227,70 @@ static func struct_origin_col(si: int) -> int:
 	return si * STRUCT_SPAN + STRUCT_MARGIN
 
 
+static var _anchor_cache: Dictionary = {}
+
+
+static func _span_is_land(cx0: int, w: int, k: int, s: int) -> bool:
+	for i in range(w):
+		var c := column(cx0 + i, k, s)
+		if c.x != 1 or c.y > STRUCT_MAX_ALT:
+			return false
+	return true
+
+
+## ★ 结构的实际锚点列：在**本槽位范围内**找一个"整段都是岛、高度也合适"的位置，
+## 找不到返回 -1（该槽位不放结构）。
+## 两点很关键：
+##   1. 以前要求"槽位原点那一列必须是岛、且高度 <= 1"，命中率只有两成多 ——
+##      体感上就是"结构根本不刷新"。现在允许在槽位内平移，命中率大幅提高。
+##   2. 平移**必须限制在槽位内**：因为 struct_cell 是按列反推槽位的，
+##      结构一旦越出槽位边界，回收查询就会算错槽位、整座建筑消失。
+static func struct_anchor_col(si: int, k: int, width: int, s: int) -> int:
+	var key := Vector2i(si, k)
+	var cached: Variant = _anchor_cache.get(key)
+	if cached != null:
+		return cached
+	var ox := struct_origin_col(si)
+	var limit := maxi(STRUCT_SPAN - width, 0)
+	var found := -1
+	for d in range(0, limit + 1):
+		var cand := ox + d
+		if absi(cand) < STRUCT_SAFE:
+			continue
+		if _span_is_land(cand, width, k, s):
+			found = cand
+			break
+	_anchor_cache[key] = found
+	return found
+
+
 static func struct_base_row(si: int, k: int, s: int) -> int:
-	return k * BAND_ROWS + maxi(column(struct_origin_col(si), k, s).y, 0)
+	var ac := struct_anchor_col(si, k, 1, s)
+	if ac < 0:
+		ac = struct_origin_col(si)
+	return k * BAND_ROWS + maxi(column(ac, k, s).y, 0)
+
+
+static var _slot_cache: Dictionary = {}
 
 
 static func struct_for_slot(si: int, k: int, s: int) -> StructureData:
 	_ensure_structs()
 	if _structs.is_empty():
 		return null
-	var ox := struct_origin_col(si)
-	var c := column(ox, k, s)
-	if c.x != 1 or c.y > STRUCT_MAX_ALT:
-		return null
-	if rand01(si, k * 31 + 501, s) > STRUCT_CHANCE:
-		return null
-	var st := _pick_struct(rand01(si, k * 31 + 601, s))
-	if st == null:
-		return null
-	if ox < STRUCT_SAFE and ox + st.width() > -STRUCT_SAFE:
-		return null
-	return st
+	var key := Vector2i(si, k)
+	if _slot_cache.has(key):
+		return _slot_cache[key]
+	var out: StructureData = null
+	if rand01(si, k * 31 + 501, s) <= STRUCT_CHANCE:
+		var st := _pick_struct(rand01(si, k * 31 + 601, s))
+		if st != null and struct_anchor_col(si, k, st.width(), s) >= 0:
+			out = st
+	_slot_cache[key] = out
+	return out
 
 
-static func struct_cell(cx: int, cy: int, s: int) -> String:
-	_ensure_structs()
-	if _structs.is_empty():
-		return ""
-	var k := fdiv(cy, BAND_ROWS)
+static func _struct_cell_in_band(cx: int, cy: int, k: int, s: int) -> String:
 	var si := fdiv(cx - STRUCT_MARGIN, STRUCT_SPAN)
 	var st := struct_for_slot(si, k, s)
 	if st == null:
@@ -257,7 +298,9 @@ static func struct_cell(cx: int, cy: int, s: int) -> String:
 		if st == null:
 			return ""
 		si -= 1
-	var ox := struct_origin_col(si)
+	var ox := struct_anchor_col(si, k, st.width(), s)
+	if ox < 0:
+		return ""
 	var col := cx - ox
 	if col < 0 or col >= st.width():
 		return ""
@@ -269,6 +312,20 @@ static func struct_cell(cx: int, cy: int, s: int) -> String:
 		return ""
 	var c := st.cell(col, gr)
 	return "" if c == "." else c
+
+
+## ★ 结构是**向上生长**的：它占的行是 [base-h+1, base-1]，比 base 更靠上，
+## 所以 fdiv(cy, BAND_ROWS) 会把结构上半部分算到「上一层带」去。
+## 因此查询必须同时试本层带和上一层带，否则整座建筑的上半截会消失。
+static func struct_cell(cx: int, cy: int, s: int) -> String:
+	_ensure_structs()
+	if _structs.is_empty():
+		return ""
+	var k := fdiv(cy, BAND_ROWS)
+	var r := _struct_cell_in_band(cx, cy, k, s)
+	if r != "":
+		return r
+	return _struct_cell_in_band(cx, cy, k + 1, s)
 
 
 # ── 总入口 ─────────────────────────────────────────────
@@ -341,6 +398,11 @@ static func art_for(cx: int, cy: int, s: int) -> String:
 		_:
 			pass
 	return "tile_stone"
+
+
+## 这一格是不是梯子（结构里的 'L'）—— 全作唯一能向上爬的东西
+static func is_ladder(cx: int, cy: int, s: int) -> bool:
+	return struct_cell(cx, cy, s) == "L"
 
 
 ## 结构里"非实心但要画出来"的构件 -> 素材名（"" = 不画）

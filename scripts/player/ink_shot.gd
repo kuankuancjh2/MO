@@ -65,6 +65,18 @@ func _on_body_entered(body: Node2D) -> void:
 
 
 func _draw() -> void:
+	# 用素材的子弹图（effect_shot / effect_shotLarge）；没有就程序画圆
+	var name := "effect_shot" if size < 20.0 * Balance.px else "effect_shotLarge"
+	var art := Assets.get_art(name)
+	if art != null:
+		var bb := Assets.art_bbox(name)
+		var sc := (size * 2.6) / maxf(float(bb.size.x), 1.0)
+		var c := Vector2(bb.position) + Vector2(bb.size) * 0.5
+		var sz := Vector2(art.get_width(), art.get_height()) * sc
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		draw_texture_rect(art, Rect2(-c * sc, sz), false,
+			Color(color.r, color.g, color.b, 0.95))
+		return
 	draw_circle(Vector2.ZERO, size, Color(color.r, color.g, color.b, 0.85))
 	draw_circle(Vector2.ZERO, size * 0.45, Color(1, 1, 1, 0.9))
 	draw_arc(Vector2.ZERO, size, 0.0, TAU, 16, Color(color.r, color.g, color.b, 0.5), 2.0)

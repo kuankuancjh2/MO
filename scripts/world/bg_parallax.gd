@@ -67,5 +67,13 @@ func _draw() -> void:
 				var at := Vector2(float(i) * step + base.x + h * step * 0.5,
 					float(j) * step * 1.7 + base.y + h * gap * 3.0)
 				var sz := size * s
+				# ★ 树下面垫一块土：树就不"浮"在空中，而像长在一座小浮岛上
+				if String(L["tex"]).begins_with("background_tree"):
+					var soil := Vector2(sz.x * 0.5, sz.y * 0.16)
+					var soil_col := Color(col.r, col.g, col.b, minf(col.a * 1.3, 1.0))
+					draw_set_transform(at + Vector2(0, sz.y * 0.5 - soil.y * 0.3),
+						0.0, Vector2(1.0, 0.40))
+					draw_circle(Vector2.ZERO, soil.x * 0.5, soil_col)
+					draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 				draw_texture_rect(tex, Rect2(at - Vector2(sz.x * 0.5, sz.y * 0.5), sz),
 					false, col)

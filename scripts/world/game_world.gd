@@ -67,6 +67,8 @@ func reset_run(new_seed: bool = true) -> void:
 func setup(p: Node2D) -> void:
 	player = p
 	_refresh(_cell(p.global_position))
+	if Balance.d.dump_minimap:
+		dump_minimap()
 
 
 ## 出生点：站在出生列的地表之上（0 层带 ±16 列被强制成连续陆地）
@@ -101,8 +103,96 @@ func tile_count() -> int:
 	return _tiles.size()
 
 
+## ★ 按「格」做接触判定（不靠碰撞回调）。
+##   靠碰撞回调在高速移动 / 刚好跨格 / 边界情形下会漏掉格子，
+##   于是脚下的地不开始倒计时 —— 这就是"移动快了踩踏检测不到"的原因。
+##   现在每帧直接把与主角矩形重叠的格子全部标记为"被踩过"。
+func touch_around(rect: Rect2, player: Node) -> void:
+	var pad := float(tile) * 0.03
+	var c0 := _cell(rect.position - Vector2(pad, pad))
+	var c1 := _cell(rect.end + Vector2(pad, pad))
+	for x in range(c0.x, c1.x + 1):
+		for y in range(c0.y, c1.y + 1):
+			var t = _tiles.get(Vector2i(x, y))
+			if t != null and is_instance_valid(t):
+				(t as SolidTile).on_touched(player)
+
+
 func entity_count() -> int:
 	return _spawned.size()
+
+
+## 这个矩形内有没有梯子（主角判断能不能爬）
+func ladder_at(rect: Rect2) -> bool:
+	var c0 := _cell(rect.position)
+	var c1 := _cell(rect.end)
+	for x in range(c0.x, c1.x + 1):
+		for y in range(c0.y, c1.y + 1):
+			if TerrainGen.is_ladder(x, y, world_seed):
+				return true
+	return false
+
+
+## ── 小地图导出（调试用，不进游戏画面）──────────────────
+## 每次生成世界后把地形自检图写到工程目录，方便一眼看生成结果。
+func dump_minimap(half_cols: int = 700) -> void:
+	var k_min := -9
+	var k_max := 4
+	var cw := 2                      ## 每列几像素
+	var ch := 3                      ## 每行几像素
+	var rows := (k_max - k_min + 1) * TerrainGen.BAND_ROWS
+	var w := half_cols * 2 * cw
+	var h := rows * ch
+	var img := Image.create(w, h, false, Image.FORMAT_RGBA8)
+	img.fill(Color(1, 1, 1, 1))
+	var s := world_seed
+	var col_bridge := Color(0.85, 0.45, 0.10)
+	var col_struct := Color(0.15, 0.55, 0.20)
+	var col_radical := Color(0.90, 0.15, 0.45)
+	var col_destroyed := Color(1, 1, 1)
+	for i in range(half_cols * 2):
+		var cx := -half_cols + i
+		for k in range(k_min, k_max + 1):
+			var c := TerrainGen.column(cx, k, s)
+			if c.x == 0:
+				continue
+			var g: float = BiomeTable.gray(TerrainGen.biome_at(cx, s))
+			var base := Color(g * 0.55, g * 0.55, g * 0.60)
+			if c.x == 2:
+				base = col_bridge
+			for r in range(TerrainGen.BAND_ROWS):
+				if r < c.y or r >= c.y + c.w:
+					continue
+				if c.x == 1 and r == c.y:
+					base = base.lightened(0.30)     # 地表行画亮一点
+				var sc := TerrainGen.struct_cell(cx, k * TerrainGen.BAND_ROWS + r, s)
+				var col := base
+				if sc != "" and sc != ".":
+					col = col_struct
+				if TerrainGen.has_radical(cx, k * TerrainGen.BAND_ROWS + r, s):
+					col = col_radical
+				if _destroyed.has(Vector2i(cx, k * TerrainGen.BAND_ROWS + r)):
+					col = col_destroyed
+				var py := (k - k_min) * TerrainGen.BAND_ROWS + r
+				for dx in range(cw):
+					for dy in range(ch):
+						img.set_pixel(i * cw + dx, py * ch + dy, col)
+	# 出生点标记
+	var home_x := half_cols * cw
+	for dx in range(-3, 4):
+		for dy in range(-6, 7):
+			var px := home_x + dx
+			var py := (0 - k_min) * TerrainGen.BAND_ROWS * ch + dy
+			if px >= 0 and px < w and py >= 0 and py < h:
+				img.set_pixel(px, py, Color(1, 0, 0))
+	var path := "res://debug_minimap.png"
+	var err := img.save_png(path)
+	if err != OK:
+		path = "user://debug_minimap.png"
+		img.save_png(path)
+	print("MO: 小地图已导出 -> ", ProjectSettings.globalize_path(path),
+		"（宽 %d 列，%d~%d 层；灰=岛 橙=桥 绿=结构 粉=含字 红点=出生点）"
+			% [half_cols * 2, k_min, k_max])
 
 
 ## 这一格是不是已经被莫永久抹掉了（装饰层用它判断"这里不再长东西"）
@@ -214,7 +304,10 @@ func _spawn_structures(min_c: Vector2i, max_c: Vector2i) -> void:
 
 
 func _stamp_structure(st: StructureData, si: int, k: int, min_c: Vector2i, max_c: Vector2i) -> void:
-	var ox := TerrainGen.struct_origin_col(si)
+	# 锚点列由 TerrainGen 决定（会在槽位附近找一个合适的岛）
+	var ox := TerrainGen.struct_anchor_col(si, k, st.width(), world_seed)
+	if ox < 0:
+		return
 	var base := TerrainGen.struct_base_row(si, k, world_seed)
 	for gr in range(st.height()):
 		var line: String = st.grid[gr]

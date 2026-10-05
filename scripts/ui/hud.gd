@@ -26,8 +26,13 @@ var _boss_label: Label
 
 func setup(p: Player) -> void:
 	_player = p
+	# ★ 视野/失明：不做整屏均匀压暗，而是**只留主角周围一圈透明**，
+	#   其余盖黑幕（像 MC 的失明）。半径由 vision_factor 决定。
+	var mat := ShaderMaterial.new()
+	mat.shader = load("res://shaders/blindness.gdshader")
 	_dark = ColorRect.new()
-	_dark.color = Color(0, 0, 0, 0)
+	_dark.color = Color(1, 1, 1, 1)
+	_dark.material = mat
 	_dark.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_dark)
 
@@ -84,10 +89,20 @@ func _process(delta: float) -> void:
 
 	var target := 0.0
 	if _player != null and is_instance_valid(_player):
-		# 「暮」的副作用：视野变暗。设上限，免得叠起来糊成一片黑。
-		target = clampf((1.0 - _player.vision_factor) * 1.5, 0.0, 0.50)
-	var c := _dark.color
-	_dark.color = Color(0, 0, 0, lerpf(c.a, target, delta * 4.0))
+		# 「暮」的副作用：只留主角周围一点点可见，其余全黑
+		target = clampf((1.0 - _player.vision_factor) * 1.5, 0.0, 0.95)
+	var mat := _dark.material as ShaderMaterial
+	if mat != null:
+		var vf: float = 1.0
+		if _player != null and is_instance_valid(_player):
+			vf = _player.vision_factor
+		mat.set_shader_parameter("darkness", target)
+		mat.set_shader_parameter("radius", clampf(0.10 + vf * 0.46, 0.10, 0.60))
+		mat.set_shader_parameter("softness", 0.18 + (1.0 - vf) * 0.12)
+		mat.set_shader_parameter("aspect", maxf(vp.x / maxf(vp.y, 1.0), 0.1))
+		if _player != null and is_instance_valid(_player):
+			var screen: Vector2 = get_viewport().get_canvas_transform() * _player.global_position
+			mat.set_shader_parameter("center", screen / vp)
 
 	_toast_left = maxf(_toast_left - delta, 0.0)
 	_toast.modulate.a = clampf(_toast_left / 0.6, 0.0, 1.0)

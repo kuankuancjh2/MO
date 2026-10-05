@@ -15,29 +15,35 @@ const LIST := [
 		"id": "grass", "name": "草原",
 		"surface": "tile_grass", "fill": "tile_stone",
 		"gray": 1.00,
-		"deco": ["tile_bush", "tile_bushHalf", "tile_tree", "tile_treeTop", "fence"],
-		"deco_chance": 0.16,
+		"deco": ["tile_bush", "tile_bushHalf", "tile_tree", "tile_treeTop",
+			"tile_treeTrunk", "fence", "tile_fence", "pole", "star", "tile_crate"],
+		"deco_chance": 0.18,
 	},
 	{
 		"id": "sand", "name": "沙地",
 		"surface": "tile_sand", "fill": "tile_sand",
 		"gray": 0.93,
-		"deco": ["cactus", "pottery", "pottery_tall", "tile_bushHalf"],
-		"deco_chance": 0.12,
+		"deco": ["cactus", "pottery", "pottery_tall", "tile_bushHalf",
+			"tile_crate", "tile_crateSmall", "tile_crateDiagonal", "star"],
+		"deco_chance": 0.15,
 	},
 	{
 		"id": "stone", "name": "石城",
 		"surface": "tile_top", "fill": "tile_brick",
 		"gray": 0.86,
-		"deco": ["column", "column_top", "window", "pole", "pole_lantern", "tile_crate"],
-		"deco_chance": 0.16,
+		# 注意：窗/柱头这类"贴在墙上"的构件不放地面装饰，
+		# 孤零零立在土上看着很怪 —— 它们由结构（建筑）去用。
+		"deco": ["column", "pole", "pole_lantern", "tile_crate", "carpet",
+			"tile_cog", "tile_flag", "tile_bushHalf"],
+		"deco_chance": 0.18,
 	},
 	{
 		"id": "ruin", "name": "遗迹",
 		"surface": "tile_diagonal", "fill": "tile_diagonal",
 		"gray": 0.78,
-		"deco": ["obelisk", "column_bottom", "archway_small", "pottery_tall", "star"],
-		"deco_chance": 0.14,
+		"deco": ["obelisk", "column", "archway_small", "archway_small_decorative",
+			"pottery_tall", "star", "smoke", "tile_gem", "triangle", "tile_bushHalf"],
+		"deco_chance": 0.17,
 	},
 ]
 

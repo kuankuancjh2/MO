@@ -26,6 +26,7 @@ func _ready() -> void:
 	await _test_double_jump()
 	await _test_shop()
 	await _test_boss()
+	await _test_ladder()
 	await _test_performance()
 	await _shoot()
 
@@ -591,7 +592,53 @@ func _test_boss() -> void:
 	_check(MetaState.souls > souls0, "击杀 Boss 给了魂币（%d -> %d）" % [souls0, MetaState.souls])
 
 
-# ── 11) 性能 ──────────────────────────────────────────
+# ── 11) 梯子 ──────────────────────────────────────────
+
+func _test_ladder() -> void:
+	print("\n[11] 梯子（全作唯一能向上爬的东西）")
+	await _clear_field()
+	var s := _world.world_seed
+	var spot := Vector2i(-99999, -99999)
+	var k_found := 0
+	for k in range(-4, 3):
+		for si in range(-60, 61):
+			var st := TerrainGen.struct_for_slot(si, k, s)
+			if st == null or st.id != "ladder_tower":
+				continue
+			var ox := TerrainGen.struct_anchor_col(si, k, st.width(), s)
+			if ox < 0:
+				continue
+			# 梯子在结构第 1 列，最下面一格
+			spot = Vector2i(ox + 1, TerrainGen.struct_base_row(si, k, s) - 2)
+			k_found = k
+			break
+		if spot.x > -99999:
+			break
+	_check(spot.x > -99999, "世界上能找到一座梯塔（列 %d 层带 %d）" % [spot.x, k_found])
+	if spot.x <= -99999:
+		return
+	_check(TerrainGen.is_ladder(spot.x, spot.y, s), "那一格确实是梯子")
+	# 把主角放到梯子下段，按住"上"看他会不会爬上去
+	var t := float(_tile())
+	_player.position = Vector2(spot.x * t + t * 0.5, spot.y * t + t * 0.5)
+	_player.velocity = Vector2.ZERO
+	await _wait_physics(4)
+	var y0 := _player.global_position.y
+	Input.action_press("move_up")
+	await _wait_physics(35)
+	Input.action_release("move_up")
+	var climbed := y0 - _player.global_position.y
+	_check(_player.climbing, "在梯子上进入爬梯状态")
+	_check(climbed > t * 0.8, "确实向上爬了（%.1f px = %.2f 格）" % [climbed, climbed / t])
+	# 按跳跃脱离
+	Input.action_press("jump")
+	await get_tree().physics_frame
+	Input.action_release("jump")
+	await _wait_physics(3)
+	_check(not _player.climbing, "按跳跃能脱离梯子")
+
+
+# ── 12) 性能 ──────────────────────────────────────────
 
 func _test_performance() -> void:
 	print("\n[11] 性能：玩久了不该越来越卡")

@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="StructureData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/structure_data.gd" id="1_jcaoj"]
+
+[resource]
+script = ExtResource("1_jcaoj")
+id = "ladder_tower"
+display_name = "梯塔"
+grid = PackedStringArray(".L......", ".L######", ".L......", ".L......", ".L......", "........")
+weight = 0.9
+tags = PackedStringArray("ladder_tower")

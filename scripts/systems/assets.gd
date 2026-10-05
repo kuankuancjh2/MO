@@ -86,6 +86,78 @@ func has_art(name: String) -> bool:
 	return get_art(name) != null
 
 
+## ── 素材内容包围盒 ─────────────────────────────────────
+## 每张图自身有 1~2px 的透明留白（实测：满格砖留白 0~2px）。
+## 直接按格子铺就会在相邻方块之间透出一道亮缝 —— 所以要按「内容」对齐：
+## 地形砖把内容拉伸到恰好铺满格子（相邻砖的描边就叠成一条线 = 连接材质），
+## 装饰物按内容底部对齐（否则会浮在地面上方）。
+
+var _bbox_cache: Dictionary = {}
+
+
+func art_bbox(name: String) -> Rect2i:
+	if _bbox_cache.has(name):
+		return _bbox_cache[name]
+	var out := Rect2i(0, 0, 1, 1)
+	var t := get_art(name)
+	if t != null:
+		var img := t.get_image()
+		if img != null:
+			out = _alpha_bbox(img)
+			if out.size.x <= 0 or out.size.y <= 0:
+				out = Rect2i(0, 0, t.get_width(), t.get_height())
+	_bbox_cache[name] = out
+	return out
+
+
+func _alpha_bbox(img: Image) -> Rect2i:
+	var w := img.get_width()
+	var h := img.get_height()
+	var minx := w
+	var miny := h
+	var maxx := -1
+	var maxy := -1
+	for y in range(h):
+		for x in range(w):
+			if img.get_pixel(x, y).a > 0.02:
+				minx = mini(minx, x)
+				miny = mini(miny, y)
+				maxx = maxi(maxx, x)
+				maxy = maxi(maxy, y)
+	if maxx < 0:
+		return Rect2i(0, 0, 0, 0)
+	return Rect2i(minx, miny, maxx - minx + 1, maxy - miny + 1)
+
+
+## 把素材「按内容铺满一个 cell×cell 的格子」所需的绘制矩形（纹理像素空间）。
+## overlap 是额外外扩比例（让相邻砖的描边互相压住，看起来是连成一片的）。
+func art_fill_rect(name: String, cell: float, overlap: float = 0.03) -> Rect2:
+	var t := get_art(name)
+	if t == null:
+		return Rect2(0, 0, cell, cell)
+	var bb := art_bbox(name)
+	var e := cell * overlap
+	var sx := (cell + e * 2.0) / maxf(float(bb.size.x), 1.0)
+	var sy := (cell + e * 2.0) / maxf(float(bb.size.y), 1.0)
+	return Rect2(Vector2(-float(bb.position.x) * sx, -float(bb.position.y) * sy),
+		Vector2(float(t.get_width()) * sx, float(t.get_height()) * sy))
+
+
+## 装饰物按「内容底部居中」对齐：返回绘制矩形（world 尺寸）
+func art_rect_bottom_center(name: String, at: Vector2, scale: float = 1.0) -> Rect2:
+	var t := get_art(name)
+	if t == null:
+		return Rect2(at, Vector2.ZERO)
+	var bb := art_bbox(name)
+	# 内容宽度决定缩放基准：装饰不该被拉伸，保持原始比例
+	var w := float(t.get_width()) * scale
+	var h := float(t.get_height()) * scale
+	# 让"内容底部中心"落在 at 上
+	var cx := (float(bb.position.x) + float(bb.size.x) * 0.5) * scale
+	var by := float(bb.position.y + bb.size.y) * scale
+	return Rect2(at - Vector2(cx, by), Vector2(w, h))
+
+
 ## 启动时递归扫一遍 assets/art/（含子目录），建「文件名(无扩展) -> 完整路径」索引
 func _scan_art() -> void:
 	_index_art(ART_DIR)

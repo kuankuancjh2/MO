@@ -14,6 +14,8 @@ extends Resource
 @export var oversample: bool = true
 ## 素材原生格子尺寸（缩放比 = 它 / 48）
 @export var art_tile_size: int = 128
+## 每次生成世界后把地形自检小地图导出到工程目录（调试用，不进游戏画面）
+@export var dump_minimap: bool = true
 
 @export_group("世界")
 @export var tile_size: int = 48
