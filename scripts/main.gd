@@ -12,6 +12,8 @@ var shop_ui: ShopUI
 
 func _ready() -> void:
 	add_to_group("main")
+	# 白纸：背景色由资产配置决定（美术方向是"纸上的墨线"）
+	RenderingServer.set_default_clear_color(Assets.cfg.color_background)
 	RunState.reset()
 
 	grid = GridBackground.new()

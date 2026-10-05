@@ -52,7 +52,7 @@ extends Resource
 ## 低于这个高度完全没事（普通起跳 1.88 格，永不触发）
 @export var fall_safe_tiles: float = 4.5
 ## 低于这个高度可以靠「落地前按跳跃」卸力免伤；再高就免不掉了
-@export var fall_cancel_max_tiles: float = 10.0
+@export var fall_cancel_max_tiles: float = 12.0
 ## 落地前多少秒内按过跳跃算作卸力成功
 @export var fall_landing_cancel_window: float = 0.22
 ## 触发时的伤害（固定 1 心，上限低）

@@ -24,6 +24,8 @@ var _destroyed: Dictionary = {}  ## Vector2i -> true（永久抹掉的格子）
 var _spawned: Dictionary = {}    ## Vector2i -> Node（敌人 / 商店 / boss）
 var _anchor := Vector2i(1 << 29, 1 << 29)
 var _lib: RadicalLibrary
+var _deco: DecoLayer
+var _bg: BgParallax
 
 
 func _ready() -> void:
@@ -38,6 +40,12 @@ func _ready() -> void:
 	TerrainGen.clear_cache()
 	if ResourceLoader.exists("res://data/radical_library.tres"):
 		_lib = load("res://data/radical_library.tres") as RadicalLibrary
+	# 视差背景（在最后面）与装饰层（在地形之上、角色之下）
+	_bg = BgParallax.new()
+	add_child(_bg)
+	_deco = DecoLayer.new()
+	add_child(_deco)
+	_deco.setup(self)
 
 
 func reset_run(new_seed: bool = true) -> void:
@@ -95,6 +103,11 @@ func tile_count() -> int:
 
 func entity_count() -> int:
 	return _spawned.size()
+
+
+## 这一格是不是已经被莫永久抹掉了（装饰层用它判断"这里不再长东西"）
+func is_destroyed(cell: Vector2i) -> bool:
+	return _destroyed.has(cell)
 
 
 func node_count() -> int:
@@ -177,7 +190,11 @@ func _spawn_tiles(min_c: Vector2i, max_c: Vector2i) -> void:
 			if TerrainGen.has_radical(x, y, world_seed):
 				rad = _random_radical(key, 11 + style)
 			var t := SolidTile.new()
-			t.setup(key, tile, self, style, rad)
+			t.setup(key, tile, self, style, rad,
+				TerrainGen.art_for(x, y, world_seed),
+				TerrainGen.arch_at(x, y, world_seed),
+				TerrainGen.is_bottom(x, y, world_seed),
+				TerrainGen.biome_at(x, world_seed))
 			add_child(t)
 			_tiles[key] = t
 

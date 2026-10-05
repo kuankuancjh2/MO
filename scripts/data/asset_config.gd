@@ -14,20 +14,22 @@ extends Resource
 ])
 
 @export_group("颜色")
-@export var color_background := Color("#0d0d10")
-@export var color_player := Color("#f5f5f2")
-@export var color_hp := Color("#ff6b6b")
-@export var color_radical := Color("#8fd0ff")
-@export var color_enemy := Color("#e23b3b")
-@export var color_coin := Color("#ffd23b")
-@export var color_solid_tile := Color("#343a46")
-@export var color_solid_border := Color("#6b7280")
-@export var color_tile_stepped := Color("#8a6a3a")
-@export var color_tile_warn := Color("#e23b3b")
-@export var color_grid := Color(1.0, 1.0, 1.0, 0.055)
-@export var color_void_ghost := Color(1.0, 1.0, 1.0, 0.30)
-@export var color_hud := Color("#e8e8e4")
-@export var color_hud_dim := Color(0.72, 0.72, 0.70, 0.55)
+## ★ 美术方向：**白纸上的墨线**（参考图就是这个语境）。
+## 地图是黑白线稿，只有"活着的字"带颜色 —— 莫是黑墨（无），敌人是彩墨（有）。
+@export var color_background := Color("#f4f2ee")      ## 纸
+@export var color_player := Color("#14120f")          ## 莫：黑墨
+@export var color_hp := Color("#a8342f")              ## 心：一点朱
+@export var color_radical := Color("#24404f")         ## 偏旁的墨（略带靛）
+@export var color_enemy := Color("#c03a3a")           ## 敌人的红
+@export var color_coin := Color("#b8891c")            ## 金（压暗成墨金）
+@export var color_solid_tile := Color("#ffffff")      ## 方块填充（程序占位用）
+@export var color_solid_border := Color("#1a1a1a")
+@export var color_tile_stepped := Color("#8a8a8a")
+@export var color_tile_warn := Color("#a8342f")        ## 危险提示：朱
+@export var color_grid := Color(0.0, 0.0, 0.0, 0.09)   ## 纸上的虚线格
+@export var color_void_ghost := Color(0.0, 0.0, 0.0, 0.34)
+@export var color_hud := Color("#1a1a1a")
+@export var color_hud_dim := Color(0.34, 0.34, 0.34, 0.85)
 
 @export_group("方块外观（留空则用程序绘制的方框）")
 @export var solid_tile_texture: Texture2D

@@ -81,8 +81,6 @@ func _draw() -> void:
 	var sz := f.get_string_size(ch, HORIZONTAL_ALIGNMENT_LEFT, -1, fs)
 	var at := Vector2(-sz.x * 0.5, sz.y * 0.5 - Balance.px * 5.0)
 	var wob := sin(_t * 7.0) * Balance.px * 1.5
-	# 黑描边 + 白字 = 像毛笔写在纸上
-	draw_string_outline(f, at + Vector2(0, wob), ch, HORIZONTAL_ALIGNMENT_LEFT, -1,
-		fs, int(Balance.px * 5.0), Color(0, 0, 0, 0.95))
+	# 纸上墨字：黑字（地图是黑白线稿，偏旁也保持黑白）
 	draw_string(f, at + Vector2(0, wob), ch, HORIZONTAL_ALIGNMENT_LEFT, -1, fs,
-		Color(0.97, 0.97, 0.95))
+		Color(0.10, 0.10, 0.10))

@@ -153,6 +153,6 @@ func _draw() -> void:
 	var fs := Assets.cfg.radical_font_size
 	var sz2 := f.get_string_size(ch, HORIZONTAL_ALIGNMENT_LEFT, -1, fs)
 	var at := Vector2(-sz2.x * 0.5, sz2.y * 0.5 - Balance.px * 5.0)
-	var col := Color(1.0, 0.28, 0.28) if _flash <= 0.0 else Color.WHITE
+	var col := Color(0.75, 0.22, 0.22) if _flash <= 0.0 else Color(0.9, 0.9, 0.9)
 	draw_string_outline(f, at, ch, HORIZONTAL_ALIGNMENT_LEFT, -1, fs,
-		int(Balance.px * 7.0), Color(col.r, col.g, col.b, 0.95))
+		int(Balance.px * 3.5), Color(col.r, col.g, col.b, 0.95))

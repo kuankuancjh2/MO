@@ -36,34 +36,33 @@ func _draw() -> void:
 		draw_string(f, Vector2(0, 12), "字", HORIZONTAL_ALIGNMENT_LEFT, -1,
 			int(cfg.hud_font_size * 0.8), cfg.color_hud_dim)
 
-	# 一排字砖
+	# 一排字砖（黑白：白砖 + 黑边 + 黑字 —— 和地图同一种"纸上的字"语言）
 	for i in range(slots):
 		var x := (i + 1) * (BLOCK + GAP)
 		var r := Rect2(x, -BLOCK * 0.5, BLOCK, BLOCK)
 		if i < RunState.radicals.size():
 			var d: RadicalData = RunState.radicals[i]
-			var tint := d.tint
-			draw_rect(r, Color(0.10, 0.11, 0.14, 0.9), true)
-			draw_rect(r, Color(tint.r, tint.g, tint.b, 0.9), false, 2.0)
+			draw_rect(r, Color(1, 1, 1, 0.95), true)
+			draw_rect(r, Color(0.10, 0.10, 0.10, 0.95), false, 2.0)
 			if f != null:
 				var ch: String = d.composed_char
 				var fs := int(cfg.hud_font_size)
 				var sz := f.get_string_size(ch, HORIZONTAL_ALIGNMENT_LEFT, -1, fs)
 				draw_string(f, Vector2(x + BLOCK * 0.5 - sz.x * 0.5,
-					sz.y * 0.5 - 5.0), ch, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, tint)
+					sz.y * 0.5 - 5.0), ch, HORIZONTAL_ALIGNMENT_LEFT, -1, fs,
+					Color(0.10, 0.10, 0.10))
 		else:
 			# 空槽位 = 虚线方块
-			_draw_dashed_rect(r, Color(1, 1, 1, 0.18))
+			_draw_dashed_rect(r, Color(0.10, 0.10, 0.10, 0.22))
 
 	# 每个字的说明
 	y = BLOCK * 0.5 + line_h
 	for d in RunState.radicals:
 		if f == null:
 			break
-		var tint: Color = d.tint
 		var text := "%s：%s" % [d.composed_char, d.summary()]
-		draw_string(f, Vector2(0, y), text, HORIZONTAL_ALIGNMENT_LEFT, 520.0,
-			int(cfg.hud_font_size * 0.68), Color(tint.r, tint.g, tint.b, 0.95))
+		draw_string(f, Vector2(0, y), text, HORIZONTAL_ALIGNMENT_LEFT, 560.0,
+			int(cfg.hud_font_size * 0.68), Color(0.16, 0.16, 0.16, 0.9))
 		y += line_h * 0.86
 	if RunState.radicals.is_empty() and f != null:
 		draw_string(f, Vector2(0, y), "撞碎地里的字块，把「莫」填成新的字",
