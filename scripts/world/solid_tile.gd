@@ -54,6 +54,8 @@ func _ready() -> void:
 	_tex = cfg.solid_tile_texture
 	_stepped_tex = cfg.stepped_tile_texture
 	z_index = -1
+	# 性能：几百块砖不该每帧都跑 _process —— 被碰到时才开
+	set_process(false)
 
 
 ## 被主角触碰：开始倒计时。
@@ -67,6 +69,7 @@ func on_touched(p: Node) -> void:
 		factor = p.vanish_factor
 	total = maxf(Balance.d.vanish_time * factor, 0.30)
 	time_left = total
+	set_process(true)
 	queue_redraw()
 
 
@@ -82,6 +85,7 @@ func _process(delta: float) -> void:
 
 func _vanish() -> void:
 	state = State.GONE
+	Sfx.play_varied("vanish")
 	if world != null and world.has_method("notify_destroyed"):
 		world.notify_destroyed(cell)
 	_spawn_ghost()

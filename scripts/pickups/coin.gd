@@ -30,19 +30,20 @@ func _process(delta: float) -> void:
 	if _life <= 0.0:
 		queue_free()
 		return
+	if not RunState.has_attract():
+		return                       # 没磁吸就不动，也就不需要重绘
 	if _player == null or not is_instance_valid(_player):
 		_player = get_tree().get_first_node_in_group("player")
 		return
-	if RunState.has_attract():
-		var d := _player.global_position - global_position
-		if d.length() < Balance.d.attract_radius:
-			global_position += d.normalized() * Balance.d.attract_speed * delta
-	queue_redraw()
+	var d := _player.global_position - global_position
+	if d.length() < Balance.d.attract_radius:
+		global_position += d.normalized() * Balance.d.attract_speed * delta
 
 
 func _on_body_entered(body: Node2D) -> void:
 	if body is Player:
 		RunState.add_coins(1)
+		Sfx.play_varied("coin", 0.12)
 		queue_free()
 
 

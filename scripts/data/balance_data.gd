@@ -2,13 +2,15 @@ class_name BalanceData
 extends Resource
 ## 手感 / 平衡参数集中地。
 ## 运行时会从 res://data/balance.tres 读取；文件缺失则使用本文件的默认值。
+##
+## 注意：Godot 只把「和默认值不同」的项写进 .tres，所以那个文件很短，这是正常的。
 
 @export_group("世界")
 @export var tile_size: int = 48
-
-@export_group("世界种子")
-## 0 = 每次开局随机；非 0 = 固定种子（便于调试复现）
+## 0 = 每次开局随机种子；非 0 = 固定种子（便于复现调试）
 @export var fixed_world_seed: int = 0
+@export var world_cols: int = 24
+@export var world_rows: int = 18
 
 @export_group("主角")
 @export var player_size: int = 32
@@ -26,23 +28,25 @@ extends Resource
 @export_group("地面消失")
 ## 核心手感参数：踩上去后多少秒消失
 @export var vanish_time: float = 4.0
-## 消失动画的三段占比 —— 变色 / 闪烁 / 消散
+## 消失动画三段占比 —— 变色 / 闪烁 / 消散
 @export var vanish_warn_ratio: float = 0.60
 @export var vanish_blink_ratio: float = 0.30
 
 @export_group("攻击")
-@export var attack_cooldown: float = 0.30
+@export var attack_cooldown: float = 0.28
 @export var attack_damage: float = 1.0
-@export var projectile_speed: float = 640.0
-@export var projectile_life: float = 0.50
+@export var projectile_speed: float = 680.0
+@export var projectile_life: float = 0.55
 
 @export_group("掉落伤害")
-## 只有掉落超过这个高度（以格子计）才会受伤
-@export var fall_damage_min_tiles: float = 4.5
-## 超过阈值后，每多掉一格造成的伤害
-@export var fall_damage_per_tile: float = 0.30
-## 单次掉落伤害上限（不多）
-@export var fall_damage_max: float = 1.5
+## 低于这个高度完全没事（普通起跳 1.88 格，永不触发）
+@export var fall_safe_tiles: float = 4.5
+## 低于这个高度可以靠「落地前按跳跃」卸力免伤；再高就免不掉了
+@export var fall_cancel_max_tiles: float = 10.0
+## 落地前多少秒内按过跳跃算作卸力成功
+@export var fall_landing_cancel_window: float = 0.22
+## 触发时的伤害（固定 1 心，上限低）
+@export var fall_damage_amount: float = 1.0
 ## 掉落伤害是否可以致死。false = 摔不死，最多剩 1 心。
 @export var fall_damage_lethal: bool = false
 
@@ -51,15 +55,28 @@ extends Resource
 @export var enemy_damage: float = 1.0
 @export var enemy_speed: float = 68.0
 @export var enemy_contact_cooldown: float = 0.8
-@export var enemy_spawn_chance: float = 0.045
-@export var radical_spawn_chance: float = 0.012
+## 踩头弹起的力度
+@export var stomp_bounce: float = -420.0
+## 每格平台上刷怪的独立概率（密度故意压得很低）
+@export var enemy_spawn_chance: float = 0.016      ## 红色方块怪（巡逻）
+@export var seeker_spawn_chance: float = 0.006     ## 猎手（追人）
+@export var flyer_spawn_chance: float = 0.008      ## 飞怪
+@export var radical_enemy_chance: float = 0.004    ## 红色偏旁怪
+@export var word_block_spawn_chance: float = 0.010 ## 地上的字块
+## 离主角多近之内不刷怪（格）
+@export var spawn_min_distance: int = 8
 
-@export_group("偏旁")
+@export_group("敌人：飞怪")
+@export var flyer_speed: float = 82.0
+@export var flyer_tame_time: float = 6.0
+
+@export_group("字 / 偏旁")
 @export var radical_slots_base: int = 2
 @export var attract_radius: float = 230.0
 @export var attract_speed: float = 420.0
 @export var enemy_attract_speed: float = 26.0
 
-@export_group("关卡")
-@export var world_cols: int = 24
-@export var world_rows: int = 18
+@export_group("商店")
+@export var shop_heal_price: int = 2
+@export var shop_word_price: int = 5
+@export var shop_slot_price: int = 8

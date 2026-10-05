@@ -27,10 +27,10 @@ static func cast_active(p: Player, r: RadicalData) -> void:
 
 
 static func _cast_mo_shui(p: Player, r: RadicalData) -> void:
-	var dir := Vector2(p.facing, 0.0)
+	# 三发水柱，每一发都独立生效（都伤害 + 击退）。没有副作用。
+	var base_dir := p.aim_direction()
 	for i in range(3):
-		var spread := Vector2(p.facing, (i - 1) * 0.18).normalized()
-		p.shoot(spread, 0.8 * p.attack_factor, 720.0, 0.40, 14.0,
+		var d := base_dir.rotated((i - 1) * 0.16)
+		p.shoot(d, 1.0 * p.attack_factor, 720.0, 0.45, 14.0,
 			Assets.cfg.color_radical, 320.0)
-	# 副作用：水冲刷掉了地基 —— 接下来 3 秒你的地面消失得更快
-	p.add_timed("vanish", 0.5, 3.0)
+	Sfx.play("transform")

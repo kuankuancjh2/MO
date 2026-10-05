@@ -1,5 +1,10 @@
-; 《莫》 MO - Godot 4.7
-; 主题：莫（莫下面一个空）
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
 
 config_version=5
 
@@ -28,7 +33,3 @@ window/stretch/aspect="expand"
 [physics]
 
 2d/default_gravity=1500.0
-
-[rendering]
-
-textures/canvas_textures/default_texture_filter=1
