@@ -270,20 +270,24 @@ func _spawn_marker(cell: Vector2i, ch: String) -> void:
 		return
 	var node: Node2D = null
 	var rest_on_floor := false
+	var word_r := TerrainGen.rand01(cell.x, cell.y, world_seed + 3301)
 	match ch:
 		"E":
 			var e := RedBlock.new()
 			e.setup(Balance.d)
+			e.apply_word(WordEnemyTable.pick("walk", word_r))
 			node = e
 			rest_on_floor = true
 		"K":
 			var kk := Seeker.new()
 			kk.setup(Balance.d)
+			kk.apply_word(WordEnemyTable.pick("chase", word_r))
 			node = kk
 			rest_on_floor = true
 		"F":
 			var f := Flyer.new()
 			f.setup(Balance.d)
+			f.apply_word(WordEnemyTable.pick("fly", word_r))
 			node = f
 		"R":
 			var r := RadicalEnemy.new()

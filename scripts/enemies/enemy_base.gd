@@ -26,6 +26,27 @@ var _contact_cd := 0.0
 var _half := 18.0
 var _prev_pos := Vector2.ZERO
 var _art: Texture2D
+var _wg: WordGlyph
+## ★ 这个敌人是哪个"字"（彩色汉字敌人）
+var word_glyph := "命"
+var word_name := "生命"
+var word_ink := Color("#b8342f")
+var word_speed_mul := 1.0
+
+
+## 套用「字」的配置（颜色 / 血量 / 掉币 / 速度都由数据表决定）
+func apply_word(e: Dictionary) -> void:
+	word_glyph = String(e.get("glyph", "命"))
+	word_name = String(e.get("name", ""))
+	word_ink = Color(String(e.get("ink", "#b8342f")))
+	word_speed_mul = float(e.get("speed", 1.0))
+	if b != null:
+		max_hp = b.enemy_hp * float(e.get("hp", 1.0))
+		hp = max_hp
+		coin_min = maxi(1, int(e.get("coins", 2)) - 1)
+		coin_max = int(e.get("coins", 2)) + 1
+	if _wg != null and is_instance_valid(_wg):
+		_wg.set_word(word_glyph, word_ink)
 
 
 func setup(balance: BalanceData, hp_mul: float = 1.0) -> void:
@@ -48,6 +69,10 @@ func _ready() -> void:
 	rs.size = Vector2(_half * 2.0, _half * 2.0)
 	cs.shape = rs
 	add_child(cs)
+	_wg = WordGlyph.new()
+	_wg.base_font_size = Assets.cfg.enemy_font_size
+	add_child(_wg)
+	_wg.set_word(word_glyph, word_ink)
 	_art = Assets.get_art(art_name())
 	_prev_pos = global_position
 	_build()
@@ -79,8 +104,11 @@ func _physics_process(delta: float) -> void:
 	ai(delta)
 	move_and_slide()
 	move_delta = global_position - _prev_pos
-	if _flash > 0.0:
-		queue_redraw()
+	if _wg != null and is_instance_valid(_wg):
+		var was := _wg.flash
+		_wg.flash = _flash > 0.0
+		if was != _wg.flash:
+			_wg.queue_redraw()
 
 
 func try_contact_damage(p: Player) -> void:
@@ -132,15 +160,27 @@ func _drop_coins() -> void:
 
 func sprite_color() -> Color:
 	if _flash > 0.0:
-		return Color.WHITE
-	return Assets.cfg.color_enemy
+		return Color(0.85, 0.85, 0.85)
+	return word_ink
 
 
-## 有美术图就画图，返回 true 表示已经画完了
-func draw_art_if_any() -> bool:
-	if _art == null:
+## ★ 画这个敌人的"字"：只有一个字 —— 没有底盘、没有圈、没有脸。
+##   回来 true 表示已经画完（子类 _draw 里第一件事调它）。
+func draw_word() -> bool:
+	if _art != null:
+		var sz := _art.get_size()
+		draw_texture_rect(_art, Rect2(-sz * 0.5, sz), false, Color(1, 1, 1, 1))
+		return true
+	var f := Assets.font
+	if f == null:
 		return false
-	var sz := _art.get_size()
-	draw_texture_rect(_art, Rect2(-sz * 0.5, sz), false,
-		Color(1, 1, 1, 1) if _flash <= 0.0 else Color(2, 2, 2, 1))
+	var fs := Assets.cfg.enemy_font_size
+	var sz2 := f.get_string_size(word_glyph, HORIZONTAL_ALIGNMENT_LEFT, -1, fs)
+	var at := Vector2(-sz2.x * 0.5, sz2.y * 0.5 - Balance.px * 5.0)
+	var col := sprite_color()
+	# 受击时抖一下，别再画眼睛 —— 字本身会动就够了
+	var wob := 0.0 if _flash <= 0.0 else sin(Time.get_ticks_msec() * 0.05) * Balance.px * 2.0
+	draw_string(f, at + Vector2(wob, 0), word_glyph, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, col)
+	if _dead:
+		return true
 	return true

@@ -29,7 +29,7 @@ func _build() -> void:
 
 
 func ai(_delta: float) -> void:
-	velocity.x = float(dir) * speed
+	velocity.x = float(dir) * speed * word_speed_mul
 	_ledge.position.x = _half + 4.0 * Balance.px
 	if is_on_wall():
 		_flip()
@@ -40,17 +40,3 @@ func ai(_delta: float) -> void:
 
 func _flip() -> void:
 	dir = -dir
-
-
-func _draw() -> void:
-	if draw_art_if_any():
-		return
-	var c := sprite_color()
-	var r := Rect2(Vector2(-_half, -_half), Vector2(_half * 2.0, _half * 2.0))
-	draw_rect(r, c, true)
-	draw_rect(r, c.darkened(0.45), false, 3.0)
-	var ex := -4.0 * dir
-	draw_circle(Vector2(ex - 4.0, -4.0), 2.6, Color.WHITE)
-	draw_circle(Vector2(ex + 4.0, -4.0), 2.6, Color.WHITE)
-	draw_circle(Vector2(ex - 4.0 + dir * 1.2, -4.0), 1.3, Color(0.1, 0.1, 0.1))
-	draw_circle(Vector2(ex + 4.0 + dir * 1.2, -4.0), 1.3, Color(0.1, 0.1, 0.1))

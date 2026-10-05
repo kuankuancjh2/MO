@@ -31,6 +31,27 @@ var _search := 0.0
 var _half := 17.0
 var _prev_pos := Vector2.ZERO
 var _art: Texture2D
+var _wg: WordGlyph
+## ★ 这个敌人是哪个"字"
+var word_glyph := "名"
+var word_name := "名声"
+var word_ink := Color("#2f7d86")
+var word_speed_mul := 1.0
+
+
+## 与 EnemyBase 同名的方法（飞怪不继承它，但对外接口保持一致）
+func apply_word(e: Dictionary) -> void:
+	word_glyph = String(e.get("glyph", "名"))
+	word_name = String(e.get("name", ""))
+	word_ink = Color(String(e.get("ink", "#2f7d86")))
+	word_speed_mul = float(e.get("speed", 1.0))
+	if b != null:
+		max_hp = b.enemy_hp * float(e.get("hp", 1.0))
+		hp = max_hp
+		coin_min = maxi(1, int(e.get("coins", 2)) - 1)
+		coin_max = int(e.get("coins", 2)) + 1
+	if _wg != null and is_instance_valid(_wg):
+		_wg.set_word(word_glyph, word_ink)
 
 
 func setup(balance: BalanceData, hp_mul: float = 1.0) -> void:
@@ -52,6 +73,10 @@ func _ready() -> void:
 	rs.size = Vector2(_half * 2.0, _half * 1.5)
 	cs.shape = rs
 	add_child(cs)
+	_wg = WordGlyph.new()
+	_wg.base_font_size = Assets.cfg.enemy_font_size
+	add_child(_wg)
+	_wg.set_word(word_glyph, word_ink)
 	_art = Assets.get_art("enemy_flyer")
 	_half = float(b.tile_size) * 0.354
 	home = position
@@ -85,10 +110,14 @@ func _physics_process(delta: float) -> void:
 	var ty := home.y + sin(_t * 1.7 + _phase) * 30.0 * Balance.px
 	_prev_pos = global_position
 	velocity = (Vector2(tx, ty) - global_position) * 2.6
-	velocity = velocity.limit_length(_speed * 1.9)
+	velocity = velocity.limit_length(_speed * word_speed_mul * 1.9)
 	move_and_slide()
 	move_delta = global_position - _prev_pos
-	queue_redraw()
+	if _wg != null and is_instance_valid(_wg):
+		var was := _wg.flash
+		_wg.flash = _flash > 0.0
+		if was != _wg.flash:
+			_wg.queue_redraw()
 
 
 func try_contact_damage(p: Player) -> void:
@@ -124,30 +153,3 @@ func _die() -> void:
 			c.position = position + Vector2(randf_range(-12, 12), randf_range(-12, 8)) * Balance.px
 			w.call_deferred("add_child", c)
 	queue_free()
-
-
-func _draw() -> void:
-	var c := Assets.cfg.color_enemy
-	if _flash > 0.0:
-		c = Color.WHITE
-	if _art != null:
-		var sz := _art.get_size()
-		draw_texture_rect(_art, Rect2(-sz * 0.5, sz), false, Color(1, 1, 1, 1))
-		return
-	var body := PackedVector2Array([
-		Vector2(0, -_half * 0.9), Vector2(_half, 0), Vector2(0, _half * 0.9), Vector2(-_half, 0),
-	])
-	draw_colored_polygon(body, c)
-	draw_polyline(PackedVector2Array([body[0], body[1], body[2], body[3], body[0]]),
-		c.darkened(0.45), 2.0)
-	var flap := sin(_t * 14.0) * 4.0
-	draw_colored_polygon(PackedVector2Array([
-		Vector2(-_half, 0), Vector2(-_half - 12.0, -6.0 + flap), Vector2(-_half - 4.0, 6.0)]),
-		Color(c.r, c.g, c.b, 0.55))
-	draw_colored_polygon(PackedVector2Array([
-		Vector2(_half, 0), Vector2(_half + 12.0, -6.0 + flap), Vector2(_half + 4.0, 6.0)]),
-		Color(c.r, c.g, c.b, 0.55))
-	draw_circle(Vector2(-4.0, -2.0), 2.6, Color.WHITE)
-	draw_circle(Vector2(4.0, -2.0), 2.6, Color.WHITE)
-	draw_circle(Vector2(-4.0, -2.0), 1.3, Color(0.1, 0.1, 0.1))
-	draw_circle(Vector2(4.0, -2.0), 1.3, Color(0.1, 0.1, 0.1))

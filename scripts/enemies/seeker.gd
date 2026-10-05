@@ -35,23 +35,9 @@ func ai(delta: float) -> void:
 		dx = _target.global_position.x - global_position.x
 		if absf(dx) > 4.0:
 			_dir = 1 if dx > 0.0 else -1
-	velocity.x = float(_dir) * speed
+	velocity.x = float(_dir) * speed * word_speed_mul
 
 	if is_on_floor() and is_on_wall() and _jump_cd <= 0.0:
 		velocity.y = jump_velocity
 		_jump_cd = 0.7
 	queue_redraw()
-
-
-func _draw() -> void:
-	if draw_art_if_any():
-		return
-	var c := sprite_color()
-	var pts := PackedVector2Array([
-		Vector2(-_half, _half), Vector2(_half, _half), Vector2(0.0, -_half),
-	])
-	draw_colored_polygon(pts, c)
-	draw_polyline(PackedVector2Array([pts[0], pts[1], pts[2], pts[0]]), c.darkened(0.45), 3.0)
-	var ex := 3.0 * _dir
-	draw_circle(Vector2(ex, 0.0), 3.0, Color.WHITE)
-	draw_circle(Vector2(ex + _dir * 1.2, 0.0), 1.5, Color(0.1, 0.1, 0.1))
