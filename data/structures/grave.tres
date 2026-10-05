@@ -6,5 +6,5 @@
 script = ExtResource("1_cdlwl")
 id = "grave"
 display_name = "碑"
-grid = PackedStringArray("..#..", "..W..", ".....")
+grid = PackedStringArray("..C..", "..W..", ".....")
 tags = PackedStringArray("grave")

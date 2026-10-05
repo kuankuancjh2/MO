@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="StructureData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/structure_data.gd" id="1_vw0b8"]
+
+[resource]
+script = ExtResource("1_vw0b8")
+id = "castle"
+display_name = "城门"
+grid = PackedStringArray("#.#.#.#.#.#", "###########", "....A......")
+weight = 0.8
+tags = PackedStringArray("castle")

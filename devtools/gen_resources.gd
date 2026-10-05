@@ -132,12 +132,35 @@ func _gen_structure_library() -> void:
 			"id": "hut",
 			"name": "小屋",
 			"weight": 1.0,
+			# R 屋顶 / V 窗 / # 墙；地面层贯通
 			"grid": PackedStringArray([
-				"....#....",
-				"..#####..",
+				"...RRR...",
 				".#######.",
-				"#..W.E..#",
+				"##V###V##",
 				".........",
+			]),
+		},
+		{
+			"id": "castle",
+			"name": "城门",
+			"weight": 0.8,
+			# 上排雉堞 + 城墙 + 地面上的拱门（A 非实心，可从中间穿过去）
+			"grid": PackedStringArray([
+				"#.#.#.#.#.#",
+				"###########",
+				"....A......",
+			]),
+		},
+		{
+			"id": "tower",
+			"name": "塔",
+			"weight": 0.7,
+			"grid": PackedStringArray([
+				".RRR.",
+				".TTT.",
+				".TTT.",
+				".TTT.",
+				".....",
 			]),
 		},
 		{
@@ -154,7 +177,6 @@ func _gen_structure_library() -> void:
 			"id": "arch",
 			"name": "悬字台",
 			"weight": 1.0,
-			# 字块悬在 2 格高处 —— 站直够不到，跳起来刚好能撞到（跳跃高度 1.88 格）
 			"grid": PackedStringArray([
 				"..###..",
 				"...W...",
@@ -165,7 +187,6 @@ func _gen_structure_library() -> void:
 			"id": "gate",
 			"name": "拱门",
 			"weight": 0.9,
-			# 门洞在地面层，玩家从底下穿过
 			"grid": PackedStringArray([
 				".#####.",
 				"#.....#",
@@ -176,9 +197,9 @@ func _gen_structure_library() -> void:
 		{
 			"id": "colonnade",
 			"name": "柱廊",
-			"weight": 0.8,
+			"weight": 0.9,
 			"grid": PackedStringArray([
-				"#..#..#..#..#",
+				"C..C..C..C..C",
 				".............",
 			]),
 		},
@@ -186,9 +207,8 @@ func _gen_structure_library() -> void:
 			"id": "grave",
 			"name": "碑",
 			"weight": 1.0,
-			# 小柱子，字嵌在里面
 			"grid": PackedStringArray([
-				"..#..",
+				"..C..",
 				"..W..",
 				".....",
 			]),
@@ -200,19 +220,18 @@ func _gen_structure_library() -> void:
 			"grid": PackedStringArray([
 				"..#######..",
 				"#.........#",
-				"....S.S....",
+				"..F.S.S.F..",
 			]),
 		},
 		{
 			"id": "hall",
 			"name": "有之殿",
 			"weight": 0.22,
-			# Boss「有」的殿堂：顶棚完整，地面层左右贯通，B = boss
 			"grid": PackedStringArray([
+				".RRRRRRRRRRR.",
 				"#############",
-				"#...........#",
-				"#...........#",
-				"#....B......#",
+				"#V........V#",
+				"#....B.....#",
 				".............",
 			]),
 		},

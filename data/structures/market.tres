@@ -6,6 +6,6 @@
 script = ExtResource("1_7gleg")
 id = "market"
 display_name = "集市"
-grid = PackedStringArray("..#######..", "#.........#", "....S.S....")
+grid = PackedStringArray("..#######..", "#.........#", "..F.S.S.F..")
 weight = 0.5
 tags = PackedStringArray("market")

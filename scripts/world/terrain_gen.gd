@@ -34,9 +34,9 @@ const SAFE_COLS := 16          ## 0 层带 |cx| <= 此值强制连续陆地（�
 const BIOME_SCALE := 0.011     ## 群系区频率（越小每个区越长）
 const RADICAL_BLOCK_CHANCE := 0.018
 
-const STRUCT_SPAN := 34
-const STRUCT_MARGIN := 8
-const STRUCT_CHANCE := 0.62    ## 提高：以前太稀，地图上几乎看不到结构
+const STRUCT_SPAN := 26        ## 每隔多少列一个结构槽位（调小 = 结构更密）
+const STRUCT_MARGIN := 6
+const STRUCT_CHANCE := 0.80    ## 一个槽位真的放结构的概率（调高 = 更密）
 const STRUCT_SAFE := 34
 const STRUCT_MAX_ALT := 1
 
@@ -303,7 +303,7 @@ static func is_bottom(cx: int, cy: int, s: int) -> bool:
 	return r == c.y + _thick_of(c.x, c.w) - 1
 
 
-## 这一格该用哪张素材（自动拼接的核心：地表/内部/桥）
+## 这一格该用哪张素材（自动拼接的核心：地表/内部/桥/建筑构件）
 static func art_for(cx: int, cy: int, s: int) -> String:
 	var k := fdiv(cy, BAND_ROWS)
 	var c := column(cx, k, s)
@@ -314,11 +314,48 @@ static func art_for(cx: int, cy: int, s: int) -> String:
 		if is_surface(cx, cy, s):
 			return BiomeTable.surface_tex(b)
 		return BiomeTable.fill_tex(b)
+	# 结构构件：按字符给素材
 	var sc := struct_cell(cx, cy, s)
-	if sc == "W" or sc == "#":
-		var b2 := biome_at(cx, s)
-		return BiomeTable.surface_tex(b2)
+	match sc:
+		"R":
+			# 屋顶：按格子确定性挑一个形状，天际线就不会重复
+			var roofs := ["roof", "roof_roundA", "roof_roundB", "roof_roundC", "roof_roundD", "roof_roundE"]
+			return String(roofs[int(rand01(cx, cy, s + 61) * roofs.size()) % roofs.size()])
+		"C":
+			# 立柱：按上下是不是也有柱子，选柱头/柱身/柱础
+			if struct_cell(cx, cy - 1, s) != "C":
+				return "column_top"
+			if struct_cell(cx, cy + 1, s) != "C":
+				return "column_bottom"
+			return "column_middle"
+		"V":
+			return "window"
+		"T":
+			if struct_cell(cx, cy - 1, s) != "T":
+				return "tower_top"
+			if struct_cell(cx, cy + 1, s) != "T":
+				return "tower_base"
+			return "tower"
+		"#", "W":
+			return BiomeTable.surface_tex(biome_at(cx, s))
+		_:
+			pass
 	return "tile_stone"
+
+
+## 结构里"非实心但要画出来"的构件 -> 素材名（"" = 不画）
+static func marker_art(ch: String) -> String:
+	match ch:
+		"A": return "archway_small"
+		"L": return "tile_ladder"
+		"F": return "fence"
+		"U": return "tile_bush"
+		"P": return "plank"
+		"X": return "tile_spikes"
+		"O": return "doorway_open"
+		"Y": return "tile_chest"
+		_:
+			return ""
 
 
 ## 方块外观代号：0 = 岩石（岛），1 = 木板（桥）

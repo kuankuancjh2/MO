@@ -13,7 +13,14 @@ extends Resource
 ##   'E' 巡逻怪        'K' 猎手        'F' 飞怪      'R' 红偏旁怪
 ##   'S' 商店          '.' 空
 
-const SOLID_CHARS := "#W"
+## 网格字符表（实心/可站立）：
+##   '#' 通用实心      'W' 藏了偏旁的方块
+##   'R' 屋顶          'C' 立柱        'V' 窗        'T' 塔身
+## 非实心但会画的构件（穿过去，装饰用）：
+##   'A' 拱门  'L' 梯子  'F' 栅栏  'U' 灌木  'P' 木板  'X' 钉刺  'O' 门  'Y' 箱子
+## 实体：
+##   'E'/'K'/'F'… 见 GameWorld；'S' 商店   'B' Boss「有」
+const SOLID_CHARS := "#WRVCT"
 
 @export var id: String = ""
 @export var display_name: String = ""

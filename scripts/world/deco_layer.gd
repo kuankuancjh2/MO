@@ -36,6 +36,37 @@ func _art(name: String) -> Texture2D:
 	return t
 
 
+## 结构里的拱门/梯子/栅栏…（非实心，但要画出来）
+func _draw_structure_markers(x0: int, x1: int, y0: int, y1: int, k0: int, k1: int) -> void:
+	var si0 := TerrainGen.fdiv(x0 - TerrainGen.STRUCT_MARGIN, TerrainGen.STRUCT_SPAN)
+	var si1 := TerrainGen.fdiv(x1 - TerrainGen.STRUCT_MARGIN, TerrainGen.STRUCT_SPAN)
+	for k in range(k0, k1 + 1):
+		for si in range(si0, si1 + 2):
+			var st := TerrainGen.struct_for_slot(si, k, _seed)
+			if st == null:
+				continue
+			var ox := TerrainGen.struct_origin_col(si)
+			var base := TerrainGen.struct_base_row(si, k, _seed)
+			for gr in range(st.height()):
+				var line: String = st.grid[gr]
+				for col in range(line.length()):
+					var name := TerrainGen.marker_art(line[col])
+					if name == "":
+						continue
+					var tex := _art(name)
+					if tex == null:
+						continue
+					var wx := ox + col
+					var wy := base + gr - st.height()
+					if wx < x0 or wx > x1 or wy < y0 or wy > y1:
+						continue
+					var size := tex.get_size()
+					# 贴单元格底部（拱门/栅栏/梯子都站在地上）
+					var at := Vector2(wx * _tile + _tile * 0.5, (wy + 1) * _tile)
+					draw_texture_rect(tex, Rect2(at - Vector2(size.x * 0.5, size.y), size),
+						false, Color(1, 1, 1, 1))
+
+
 func _draw() -> void:
 	if world == null:
 		return
@@ -78,3 +109,5 @@ func _draw() -> void:
 			draw_texture_rect(tex, Rect2(pos - Vector2(size.x * 0.5, size.y), size),
 				false, tint)
 			drawn += 1
+	# 结构里的"非实心构件"（拱门/梯子/栅栏/灌木/木板/钉刺/门/箱子）
+	_draw_structure_markers(x0, x1, y0, y1, k0, k1)

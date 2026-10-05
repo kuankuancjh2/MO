@@ -6,5 +6,5 @@
 script = ExtResource("1_eguja")
 id = "hut"
 display_name = "小屋"
-grid = PackedStringArray("....#....", "..#####..", ".#######.", "#..W.E..#", ".........")
+grid = PackedStringArray("...RRR...", ".#######.", "##V###V##", ".........")
 tags = PackedStringArray("hut")

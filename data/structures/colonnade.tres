@@ -6,6 +6,6 @@
 script = ExtResource("1_a4mdt")
 id = "colonnade"
 display_name = "柱廊"
-grid = PackedStringArray("#..#..#..#..#", ".............")
-weight = 0.8
+grid = PackedStringArray("C..C..C..C..C", ".............")
+weight = 0.9
 tags = PackedStringArray("colonnade")

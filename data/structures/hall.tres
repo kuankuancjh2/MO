@@ -6,6 +6,6 @@
 script = ExtResource("1_7ebrk")
 id = "hall"
 display_name = "有之殿"
-grid = PackedStringArray("#############", "#...........#", "#...........#", "#....B......#", ".............")
+grid = PackedStringArray(".RRRRRRRRRRR.", "#############", "#V........V#", "#....B.....#", ".............")
 weight = 0.22
 tags = PackedStringArray("hall")
